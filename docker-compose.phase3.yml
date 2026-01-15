@@ -1,0 +1,377 @@
+services:
+  # --- JetStream multi-node topology (Phase 3 POC) ---
+  nats-central:
+    image: nats:2.10-alpine
+    command: ["-c", "/etc/nats/nats.conf"]
+    volumes:
+      - ./nats/central.conf:/etc/nats/nats.conf:ro
+      - nats-central-data:/data
+    ports:
+      - "4222:4222"
+      - "8222:8222"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8222/varz >/dev/null 2>&1 || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 20s
+
+  nats-zone:
+    image: nats:2.10-alpine
+    command: ["-c", "/etc/nats/nats.conf"]
+    volumes:
+      - ./nats/zone.conf:/etc/nats/nats.conf:ro
+      - nats-zone-data:/data
+    ports:
+      - "4223:4222"
+      - "8223:8222"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8222/varz >/dev/null 2>&1 || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 20s
+
+  nats-subzone:
+    image: nats:2.10-alpine
+    command: ["-c", "/etc/nats/nats.conf"]
+    volumes:
+      - ./nats/subzone.conf:/etc/nats/nats.conf:ro
+      - nats-subzone-data:/data
+    ports:
+      - "4224:4222"
+      - "8224:8222"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8222/varz >/dev/null 2>&1 || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 20s
+
+  nats-leaf1:
+    image: nats:2.10-alpine
+    command: ["-c", "/etc/nats/nats.conf"]
+    volumes:
+      - ./nats/leaf1.conf:/etc/nats/nats.conf:ro
+      - nats-leaf1-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8222/varz >/dev/null 2>&1 || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 20s
+
+  nats-leaf2:
+    image: nats:2.10-alpine
+    command: ["-c", "/etc/nats/nats.conf"]
+    volumes:
+      - ./nats/leaf2.conf:/etc/nats/nats.conf:ro
+      - nats-leaf2-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8222/varz >/dev/null 2>&1 || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 20s
+
+  nats-leaf3:
+    image: nats:2.10-alpine
+    command: ["-c", "/etc/nats/nats.conf"]
+    volumes:
+      - ./nats/leaf3.conf:/etc/nats/nats.conf:ro
+      - nats-leaf3-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8222/varz >/dev/null 2>&1 || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 20s
+
+  nats-leaf4:
+    image: nats:2.10-alpine
+    command: ["-c", "/etc/nats/nats.conf"]
+    volumes:
+      - ./nats/leaf4.conf:/etc/nats/nats.conf:ro
+      - nats-leaf4-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8222/varz >/dev/null 2>&1 || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 20s
+
+  nats-leaf5:
+    image: nats:2.10-alpine
+    command: ["-c", "/etc/nats/nats.conf"]
+    volumes:
+      - ./nats/leaf5.conf:/etc/nats/nats.conf:ro
+      - nats-leaf5-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8222/varz >/dev/null 2>&1 || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 20s
+
+  # --- POC applications (one per node) ---
+  sync-central:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      nats-central:
+        condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      DB_HOST: 192.168.1.13
+      DB_PORT: 5436
+      DB_NAME: dockyard_dev
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      NATS_URL: nats://nats-central:4222
+      SERVER_PORT: 8080
+      SYNC_TIER: central
+      SYNC_ZONE: central
+      SYNC_SUBZONE: none
+      SYNC_NODE_ID: central01
+      SYNC_BOOTSTRAP_ENABLED: true
+      SYNC_OUTBOX_ENABLED: true
+      SYNC_CONSUMER_ENABLED: true
+      SYNC_CONSUMER_STREAM: LEAF_STREAM
+      SYNC_CONSUMER_FILTER: leaf.>
+      SYNC_POC_ADMIN_ENABLED: true
+      # Flyway runs ONLY on central
+      SPRING_FLYWAY_ENABLED: "true"
+    ports:
+      - "18080:8080"
+
+  sync-zone:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      nats-zone:
+        condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      DB_HOST: 192.168.1.13
+      DB_PORT: 5436
+      DB_NAME: dockyard_dev
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      NATS_URL: nats://nats-zone:4222
+      SERVER_PORT: 8080
+      SYNC_TIER: zone
+      SYNC_ZONE: z1
+      SYNC_SUBZONE: sz1
+      SYNC_NODE_ID: zone01
+      SYNC_BOOTSTRAP_ENABLED: false
+      SYNC_OUTBOX_ENABLED: false
+      SYNC_CONSUMER_ENABLED: true
+      SYNC_CONSUMER_STREAM: LEAF_STREAM
+      SYNC_CONSUMER_FILTER: leaf.>
+      SYNC_POC_ADMIN_ENABLED: true
+      SPRING_FLYWAY_ENABLED: "false"
+    ports:
+      - "18082:8080"
+
+  sync-subzone:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      nats-subzone:
+        condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      DB_HOST: 192.168.1.13
+      DB_PORT: 5436
+      DB_NAME: dockyard_dev
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      NATS_URL: nats://nats-subzone:4222
+      SERVER_PORT: 8080
+      SYNC_TIER: zone
+      SYNC_ZONE: z1
+      SYNC_SUBZONE: sz1
+      SYNC_NODE_ID: subzone01
+      SYNC_BOOTSTRAP_ENABLED: false
+      SYNC_OUTBOX_ENABLED: false
+      SYNC_CONSUMER_ENABLED: true
+      SYNC_CONSUMER_STREAM: LEAF_STREAM
+      SYNC_CONSUMER_FILTER: leaf.>
+      SYNC_POC_ADMIN_ENABLED: true
+      SPRING_FLYWAY_ENABLED: "false"
+    ports:
+      - "18083:8080"
+
+  # Leaf 1 produces leaf events via outbox; leaf 2-5 consume central events.
+  sync-leaf1:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      nats-leaf1:
+        condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      DB_HOST: 192.168.1.13
+      DB_PORT: 5436
+      DB_NAME: dockyard_dev
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      NATS_URL: nats://nats-leaf1:4222
+      SERVER_PORT: 8080
+      SYNC_TIER: leaf
+      SYNC_ZONE: z1
+      SYNC_SUBZONE: sz1
+      SYNC_NODE_ID: leaf01
+      SYNC_BOOTSTRAP_ENABLED: false
+      SYNC_OUTBOX_ENABLED: true
+      SYNC_OUTBOX_POLL_INTERVAL: 30s
+      SYNC_CONSUMER_ENABLED: false
+      SYNC_POC_ADMIN_ENABLED: true
+      SPRING_FLYWAY_ENABLED: "false"
+    ports:
+      - "18081:8080"
+
+  sync-leaf2:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      nats-leaf2:
+        condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      DB_HOST: 192.168.1.13
+      DB_PORT: 5436
+      DB_NAME: dockyard_dev
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      NATS_URL: nats://nats-leaf2:4222
+      SERVER_PORT: 8080
+      SYNC_TIER: leaf
+      SYNC_ZONE: z1
+      SYNC_SUBZONE: sz1
+      SYNC_NODE_ID: leaf02
+      SYNC_BOOTSTRAP_ENABLED: false
+      SYNC_OUTBOX_ENABLED: false
+      SYNC_CONSUMER_ENABLED: true
+      SYNC_CONSUMER_STREAM: CENTRAL_STREAM
+      SYNC_CONSUMER_FILTER: central.>
+      SYNC_POC_ADMIN_ENABLED: true
+      SPRING_FLYWAY_ENABLED: "false"
+    ports:
+      - "18084:8080"
+
+  sync-leaf3:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      nats-leaf3:
+        condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      DB_HOST: 192.168.1.13
+      DB_PORT: 5436
+      DB_NAME: dockyard_dev
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      NATS_URL: nats://nats-leaf3:4222
+      SERVER_PORT: 8080
+      SYNC_TIER: leaf
+      SYNC_ZONE: z1
+      SYNC_SUBZONE: sz1
+      SYNC_NODE_ID: leaf03
+      SYNC_BOOTSTRAP_ENABLED: false
+      SYNC_OUTBOX_ENABLED: false
+      SYNC_CONSUMER_ENABLED: true
+      SYNC_CONSUMER_STREAM: CENTRAL_STREAM
+      SYNC_CONSUMER_FILTER: central.>
+      SYNC_POC_ADMIN_ENABLED: true
+      SPRING_FLYWAY_ENABLED: "false"
+    ports:
+      - "18085:8080"
+
+  sync-leaf4:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      nats-leaf4:
+        condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      DB_HOST: 192.168.1.13
+      DB_PORT: 5436
+      DB_NAME: dockyard_dev
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      NATS_URL: nats://nats-leaf4:4222
+      SERVER_PORT: 8080
+      SYNC_TIER: leaf
+      SYNC_ZONE: z1
+      SYNC_SUBZONE: sz1
+      SYNC_NODE_ID: leaf04
+      SYNC_BOOTSTRAP_ENABLED: false
+      SYNC_OUTBOX_ENABLED: false
+      SYNC_CONSUMER_ENABLED: true
+      SYNC_CONSUMER_STREAM: CENTRAL_STREAM
+      SYNC_CONSUMER_FILTER: central.>
+      SYNC_POC_ADMIN_ENABLED: true
+      SPRING_FLYWAY_ENABLED: "false"
+    ports:
+      - "18086:8080"
+
+  sync-leaf5:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      nats-leaf5:
+        condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      DB_HOST: 192.168.1.13
+      DB_PORT: 5436
+      DB_NAME: dockyard_dev
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      NATS_URL: nats://nats-leaf5:4222
+      SERVER_PORT: 8080
+      SYNC_TIER: leaf
+      SYNC_ZONE: z1
+      SYNC_SUBZONE: sz1
+      SYNC_NODE_ID: leaf05
+      SYNC_BOOTSTRAP_ENABLED: false
+      SYNC_OUTBOX_ENABLED: false
+      SYNC_CONSUMER_ENABLED: true
+      SYNC_CONSUMER_STREAM: CENTRAL_STREAM
+      SYNC_CONSUMER_FILTER: central.>
+      SYNC_POC_ADMIN_ENABLED: true
+      SPRING_FLYWAY_ENABLED: "false"
+    ports:
+      - "18087:8080"
+
+  # Utility container (optional, but kept stable)
+  nats-box:
+    image: synadia/nats-box:latest
+    entrypoint: ["/bin/sh", "-c"]
+    command: ["tail -f /dev/null"]
+    environment:
+      NATS_URL: nats://nats-central:4222
+    depends_on:
+      nats-central:
+        condition: service_healthy
+
+volumes:
+  nats-central-data:
+  nats-zone-data:
+  nats-subzone-data:
+  nats-leaf1-data:
+  nats-leaf2-data:
+  nats-leaf3-data:
+  nats-leaf4-data:
+  nats-leaf5-data:

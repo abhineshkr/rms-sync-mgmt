@@ -1,0 +1,52 @@
+server:
+  port: ${SERVER_PORT:8080}
+
+spring:
+  application:
+    name: sync-poc-app
+
+  r2dbc:
+    url: r2dbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:syncmgmt}
+    username: ${DB_USER:sync}
+    password: ${DB_PASSWORD:sync}
+
+  flyway:
+    enabled: true
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:syncmgmt}
+    user: ${DB_USER:sync}
+    password: ${DB_PASSWORD:sync}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+
+syncmgmt:
+  # node identity (LOCKED tokens)
+  tier: ${SYNC_TIER:leaf}
+  zone: ${SYNC_ZONE:z1}
+  subzone: ${SYNC_SUBZONE:sz1}
+  nodeId: ${SYNC_NODE_ID:leaf01}
+
+  # nats
+  natsUrl: ${NATS_URL:nats://localhost:4222}
+
+  # enable/disable major runtime components per node
+  bootstrap:
+    enabled: ${SYNC_BOOTSTRAP_ENABLED:true}
+
+  outbox:
+    enabled: ${SYNC_OUTBOX_ENABLED:true}
+    poll-interval: ${SYNC_OUTBOX_POLL_INTERVAL:2s}
+    batch-size: ${SYNC_OUTBOX_BATCH_SIZE:50}
+
+  demo-consumer:
+    enabled: ${SYNC_CONSUMER_ENABLED:true}
+    stream: ${SYNC_CONSUMER_STREAM:LEAF_STREAM}
+    filter-subject: ${SYNC_CONSUMER_FILTER:leaf.>}
+    poll-interval: ${SYNC_CONSUMER_POLL_INTERVAL:1s}
+    batch-size: ${SYNC_CONSUMER_BATCH_SIZE:10}
+
+  poc-admin:
+    enabled: ${SYNC_POC_ADMIN_ENABLED:true}
