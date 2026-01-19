@@ -2,22 +2,26 @@
 set -euo pipefail
 source "$(dirname "$0")/_common.sh"
 
-cat <<'EOF'
+phase3_prereqs
+log_title "TEST: DEDUP USING MSG-ID (ADJACENCY)"
+phase3_context
+
+cat >&2 <<'EOF'
 TEST: Duplicate publish / JetStream Msg-Id dedup
 
 EXPECTED OUTPUT / PASS CRITERIA
 - Two publishes are executed with the SAME messageId.
 - JetStream dedup ensures only ONE new stream message is stored:
-    - CENTRAL_STREAM lastSeq increases by exactly 1 (not 2).
+    - DOWN_CENTRAL_STREAM lastSeq increases by exactly 1 (not 2).
 
 EVIDENCE TO CAPTURE
 - JSON publish responses (both)
-- Baseline and final CENTRAL_STREAM lastSeq
+- Baseline and final DOWN_CENTRAL_STREAM lastSeq
 EOF
 
 CENTRAL_ADMIN="${CENTRAL_BASE}"          # typically http://localhost:18080
-STREAM="CENTRAL_STREAM"
-SUBJECT="central.central.none.central01.order.created"
+STREAM="DOWN_CENTRAL_STREAM"
+SUBJECT="down.central.z1.sz1.all.audit.dedup"
 MSG_ID="${1:-dedup-$(date +%s)}"
 
 payload="{\"test\":\"dedup\",\"ts\":\"$(date -Iseconds)\"}"

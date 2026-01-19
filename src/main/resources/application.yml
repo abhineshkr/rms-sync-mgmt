@@ -35,6 +35,73 @@ syncmgmt:
   # enable/disable major runtime components per node
   bootstrap:
     enabled: ${SYNC_BOOTSTRAP_ENABLED:true}
+    # When true, fail fast if existing stream differs from desired config
+    fail-on-mismatch: ${SYNC_BOOTSTRAP_FAIL_ON_MISMATCH:false}
+
+  # JetStream streams (everything configurable; defaults match spec)
+  jetstream:
+    streams:
+      # --- Upstream (child -> parent): WorkQueue retention ---
+      up-leaf:
+        name: ${SYNC_UP_LEAF_STREAM_NAME:UP_LEAF_STREAM}
+        subjects: ["${SYNC_UP_LEAF_STREAM_SUBJECT:up.leaf.>}"]
+        max-age: ${SYNC_UP_LEAF_STREAM_MAX_AGE:30d}
+        retention-policy: ${SYNC_UP_LEAF_STREAM_RETENTION:workqueue}
+        storage-type: ${SYNC_UP_LEAF_STREAM_STORAGE:File}
+        replicas: ${SYNC_UP_LEAF_STREAM_REPLICAS:1}
+        placement-tags: ["${SYNC_UP_LEAF_STREAM_PLACEMENT_TAG:leaf}"]
+
+      up-subzone:
+        name: ${SYNC_UP_SUBZONE_STREAM_NAME:UP_SUBZONE_STREAM}
+        subjects: ["${SYNC_UP_SUBZONE_STREAM_SUBJECT:up.subzone.>}"]
+        max-age: ${SYNC_UP_SUBZONE_STREAM_MAX_AGE:60d}
+        retention-policy: ${SYNC_UP_SUBZONE_STREAM_RETENTION:workqueue}
+        storage-type: ${SYNC_UP_SUBZONE_STREAM_STORAGE:File}
+        replicas: ${SYNC_UP_SUBZONE_STREAM_REPLICAS:1}
+        placement-tags: ["${SYNC_UP_SUBZONE_STREAM_PLACEMENT_TAG:zone}"]
+
+      up-zone:
+        name: ${SYNC_UP_ZONE_STREAM_NAME:UP_ZONE_STREAM}
+        subjects: ["${SYNC_UP_ZONE_STREAM_SUBJECT:up.zone.>}"]
+        max-age: ${SYNC_UP_ZONE_STREAM_MAX_AGE:90d}
+        retention-policy: ${SYNC_UP_ZONE_STREAM_RETENTION:workqueue}
+        storage-type: ${SYNC_UP_ZONE_STREAM_STORAGE:File}
+        replicas: ${SYNC_UP_ZONE_STREAM_REPLICAS:1}
+        placement-tags: ["${SYNC_UP_ZONE_STREAM_PLACEMENT_TAG:central}"]
+
+      # --- Downstream (parent -> child): Interest retention ---
+      down-central:
+        name: ${SYNC_DOWN_CENTRAL_STREAM_NAME:DOWN_CENTRAL_STREAM}
+        subjects: ["${SYNC_DOWN_CENTRAL_STREAM_SUBJECT:down.central.>}"]
+        max-age: ${SYNC_DOWN_CENTRAL_STREAM_MAX_AGE:90d}
+        retention-policy: ${SYNC_DOWN_CENTRAL_STREAM_RETENTION:interest}
+        storage-type: ${SYNC_DOWN_CENTRAL_STREAM_STORAGE:File}
+        replicas: ${SYNC_DOWN_CENTRAL_STREAM_REPLICAS:1}
+        placement-tags: ["${SYNC_DOWN_CENTRAL_STREAM_PLACEMENT_TAG:central}"]
+
+      down-zone:
+        name: ${SYNC_DOWN_ZONE_STREAM_NAME:DOWN_ZONE_STREAM}
+        subjects: ["${SYNC_DOWN_ZONE_STREAM_SUBJECT:down.zone.>}"]
+        max-age: ${SYNC_DOWN_ZONE_STREAM_MAX_AGE:60d}
+        retention-policy: ${SYNC_DOWN_ZONE_STREAM_RETENTION:interest}
+        storage-type: ${SYNC_DOWN_ZONE_STREAM_STORAGE:File}
+        replicas: ${SYNC_DOWN_ZONE_STREAM_REPLICAS:1}
+        placement-tags: ["${SYNC_DOWN_ZONE_STREAM_PLACEMENT_TAG:zone}"]
+
+      down-subzone:
+        name: ${SYNC_DOWN_SUBZONE_STREAM_NAME:DOWN_SUBZONE_STREAM}
+        subjects: ["${SYNC_DOWN_SUBZONE_STREAM_SUBJECT:down.subzone.>}"]
+        max-age: ${SYNC_DOWN_SUBZONE_STREAM_MAX_AGE:30d}
+        retention-policy: ${SYNC_DOWN_SUBZONE_STREAM_RETENTION:interest}
+        storage-type: ${SYNC_DOWN_SUBZONE_STREAM_STORAGE:File}
+        replicas: ${SYNC_DOWN_SUBZONE_STREAM_REPLICAS:1}
+        placement-tags: ["${SYNC_DOWN_SUBZONE_STREAM_PLACEMENT_TAG:leaf}"]
+
+  relay:
+    enabled: ${SYNC_RELAY_ENABLED:false}
+    zone-has-subzones: ${SYNC_ZONE_HAS_SUBZONES:true}
+    batch-size: ${SYNC_RELAY_BATCH_SIZE:50}
+    poll-interval-ms: ${SYNC_RELAY_POLL_INTERVAL_MS:500}
 
   outbox:
     enabled: ${SYNC_OUTBOX_ENABLED:true}
@@ -42,9 +109,9 @@ syncmgmt:
     batch-size: ${SYNC_OUTBOX_BATCH_SIZE:50}
 
   demo-consumer:
-    enabled: ${SYNC_CONSUMER_ENABLED:true}
-    stream: ${SYNC_CONSUMER_STREAM:LEAF_STREAM}
-    filter-subject: ${SYNC_CONSUMER_FILTER:leaf.>}
+    enabled: ${SYNC_CONSUMER_ENABLED:false}
+    stream: ${SYNC_CONSUMER_STREAM:UP_LEAF_STREAM}
+    filter-subject: ${SYNC_CONSUMER_FILTER:up.leaf.>}
     poll-interval: ${SYNC_CONSUMER_POLL_INTERVAL:1s}
     batch-size: ${SYNC_CONSUMER_BATCH_SIZE:10}
 

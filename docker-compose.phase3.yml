@@ -15,6 +15,8 @@ services:
       timeout: 3s
       retries: 30
       start_period: 20s
+    networks:
+      - erp_nats
 
   nats-zone:
     image: nats:2.10-alpine
@@ -31,6 +33,8 @@ services:
       timeout: 3s
       retries: 30
       start_period: 20s
+    networks:
+      - erp_nats
 
   nats-subzone:
     image: nats:2.10-alpine
@@ -47,6 +51,8 @@ services:
       timeout: 3s
       retries: 30
       start_period: 20s
+    networks:
+      - erp_nats
 
   nats-leaf1:
     image: nats:2.10-alpine
@@ -60,6 +66,8 @@ services:
       timeout: 3s
       retries: 30
       start_period: 20s
+    networks:
+      - erp_nats
 
   nats-leaf2:
     image: nats:2.10-alpine
@@ -73,6 +81,8 @@ services:
       timeout: 3s
       retries: 30
       start_period: 20s
+    networks:
+      - erp_nats
 
   nats-leaf3:
     image: nats:2.10-alpine
@@ -86,6 +96,8 @@ services:
       timeout: 3s
       retries: 30
       start_period: 20s
+    networks:
+      - erp_nats
 
   nats-leaf4:
     image: nats:2.10-alpine
@@ -99,6 +111,8 @@ services:
       timeout: 3s
       retries: 30
       start_period: 20s
+    networks:
+      - erp_nats
 
   nats-leaf5:
     image: nats:2.10-alpine
@@ -112,6 +126,8 @@ services:
       timeout: 3s
       retries: 30
       start_period: 20s
+    networks:
+      - erp_nats
 
   # --- POC applications (one per node) ---
   sync-central:
@@ -135,15 +151,20 @@ services:
       SYNC_SUBZONE: none
       SYNC_NODE_ID: central01
       SYNC_BOOTSTRAP_ENABLED: true
-      SYNC_OUTBOX_ENABLED: true
+      SYNC_OUTBOX_ENABLED: false
+      SYNC_RELAY_ENABLED: false
+
+      # Central consumes upstream from its direct children (zones / direct leaves)
       SYNC_CONSUMER_ENABLED: true
-      SYNC_CONSUMER_STREAM: LEAF_STREAM
-      SYNC_CONSUMER_FILTER: leaf.>
+      SYNC_CONSUMER_STREAM: UP_ZONE_STREAM
+      SYNC_CONSUMER_FILTER: up.zone.>
       SYNC_POC_ADMIN_ENABLED: true
       # Flyway runs ONLY on central
       SPRING_FLYWAY_ENABLED: "true"
     ports:
       - "18080:8080"
+    networks:
+      - erp_nats
 
   sync-zone:
     build: .
@@ -163,17 +184,23 @@ services:
       SERVER_PORT: 8080
       SYNC_TIER: zone
       SYNC_ZONE: z1
-      SYNC_SUBZONE: sz1
+      SYNC_SUBZONE: none
       SYNC_NODE_ID: zone01
       SYNC_BOOTSTRAP_ENABLED: false
       SYNC_OUTBOX_ENABLED: false
-      SYNC_CONSUMER_ENABLED: true
-      SYNC_CONSUMER_STREAM: LEAF_STREAM
-      SYNC_CONSUMER_FILTER: leaf.>
+      SYNC_CONSUMER_ENABLED: false
+
+      # Zone relays:
+      # - upstream from subzone (or direct leaf if no subzones) -> UP_ZONE_STREAM
+      # - downstream from central -> DOWN_ZONE_STREAM
+      SYNC_RELAY_ENABLED: true
+      SYNC_ZONE_HAS_SUBZONES: true
       SYNC_POC_ADMIN_ENABLED: true
       SPRING_FLYWAY_ENABLED: "false"
     ports:
       - "18082:8080"
+    networks:
+      - erp_nats
 
   sync-subzone:
     build: .
@@ -191,19 +218,24 @@ services:
       DB_PASSWORD: postgres
       NATS_URL: nats://nats-subzone:4222
       SERVER_PORT: 8080
-      SYNC_TIER: zone
+      SYNC_TIER: subzone
       SYNC_ZONE: z1
       SYNC_SUBZONE: sz1
       SYNC_NODE_ID: subzone01
       SYNC_BOOTSTRAP_ENABLED: false
       SYNC_OUTBOX_ENABLED: false
-      SYNC_CONSUMER_ENABLED: true
-      SYNC_CONSUMER_STREAM: LEAF_STREAM
-      SYNC_CONSUMER_FILTER: leaf.>
+      SYNC_CONSUMER_ENABLED: false
+
+      # Subzone relays:
+      # - upstream from leaf -> UP_SUBZONE_STREAM
+      # - downstream from zone -> DOWN_SUBZONE_STREAM
+      SYNC_RELAY_ENABLED: true
       SYNC_POC_ADMIN_ENABLED: true
       SPRING_FLYWAY_ENABLED: "false"
     ports:
       - "18083:8080"
+    networks:
+      - erp_nats
 
   # Leaf 1 produces leaf events via outbox; leaf 2-5 consume central events.
   sync-leaf1:
@@ -230,10 +262,13 @@ services:
       SYNC_OUTBOX_ENABLED: true
       SYNC_OUTBOX_POLL_INTERVAL: 30s
       SYNC_CONSUMER_ENABLED: false
+      SYNC_RELAY_ENABLED: false
       SYNC_POC_ADMIN_ENABLED: true
       SPRING_FLYWAY_ENABLED: "false"
     ports:
       - "18081:8080"
+    networks:
+      - erp_nats
 
   sync-leaf2:
     build: .
@@ -258,12 +293,15 @@ services:
       SYNC_BOOTSTRAP_ENABLED: false
       SYNC_OUTBOX_ENABLED: false
       SYNC_CONSUMER_ENABLED: true
-      SYNC_CONSUMER_STREAM: CENTRAL_STREAM
-      SYNC_CONSUMER_FILTER: central.>
+      SYNC_CONSUMER_STREAM: DOWN_SUBZONE_STREAM
+      SYNC_CONSUMER_FILTER: down.subzone.z1.sz1.>
+      SYNC_RELAY_ENABLED: false
       SYNC_POC_ADMIN_ENABLED: true
       SPRING_FLYWAY_ENABLED: "false"
     ports:
       - "18084:8080"
+    networks:
+      - erp_nats
 
   sync-leaf3:
     build: .
@@ -288,12 +326,15 @@ services:
       SYNC_BOOTSTRAP_ENABLED: false
       SYNC_OUTBOX_ENABLED: false
       SYNC_CONSUMER_ENABLED: true
-      SYNC_CONSUMER_STREAM: CENTRAL_STREAM
-      SYNC_CONSUMER_FILTER: central.>
+      SYNC_CONSUMER_STREAM: DOWN_SUBZONE_STREAM
+      SYNC_CONSUMER_FILTER: down.subzone.z1.sz1.>
+      SYNC_RELAY_ENABLED: false
       SYNC_POC_ADMIN_ENABLED: true
       SPRING_FLYWAY_ENABLED: "false"
     ports:
       - "18085:8080"
+    networks:
+      - erp_nats
 
   sync-leaf4:
     build: .
@@ -318,12 +359,15 @@ services:
       SYNC_BOOTSTRAP_ENABLED: false
       SYNC_OUTBOX_ENABLED: false
       SYNC_CONSUMER_ENABLED: true
-      SYNC_CONSUMER_STREAM: CENTRAL_STREAM
-      SYNC_CONSUMER_FILTER: central.>
+      SYNC_CONSUMER_STREAM: DOWN_SUBZONE_STREAM
+      SYNC_CONSUMER_FILTER: down.subzone.z1.sz1.>
+      SYNC_RELAY_ENABLED: false
       SYNC_POC_ADMIN_ENABLED: true
       SPRING_FLYWAY_ENABLED: "false"
     ports:
       - "18086:8080"
+    networks:
+      - erp_nats
 
   sync-leaf5:
     build: .
@@ -348,12 +392,15 @@ services:
       SYNC_BOOTSTRAP_ENABLED: false
       SYNC_OUTBOX_ENABLED: false
       SYNC_CONSUMER_ENABLED: true
-      SYNC_CONSUMER_STREAM: CENTRAL_STREAM
-      SYNC_CONSUMER_FILTER: central.>
+      SYNC_CONSUMER_STREAM: DOWN_SUBZONE_STREAM
+      SYNC_CONSUMER_FILTER: down.subzone.z1.sz1.>
+      SYNC_RELAY_ENABLED: false
       SYNC_POC_ADMIN_ENABLED: true
       SPRING_FLYWAY_ENABLED: "false"
     ports:
       - "18087:8080"
+    networks:
+      - erp_nats
 
   # Utility container (optional, but kept stable)
   nats-box:
@@ -365,6 +412,49 @@ services:
     depends_on:
       nats-central:
         condition: service_healthy
+    networks:
+      - erp_nats
+
+  # --- NATS UI (Synadia NUI) ---
+  nats-nui:
+    image: ghcr.io/nats-nui/nui:latest
+    container_name: syncmgmt_phase3-nats-nui
+    restart: unless-stopped
+    ports:
+      - "31311:31311"
+    volumes:
+      - nats-nui-db:/db
+    depends_on:
+      nats-central:
+        condition: service_healthy
+    networks:
+      - erp_nats
+
+  # --- Optional: alternate web UI container you are already using ---
+  nats-webui:
+    image: sphqxe/nats-webui:latest
+    container_name: syncmgmt_phase3-nats-webui
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      nats-central:
+        condition: service_healthy
+    networks:
+      - erp_nats
+  nats-nui:
+    image: ghcr.io/nats-nui/nui:latest
+    container_name: syncmgmt_phase3-nats-nui
+    restart: unless-stopped
+    ports:
+      - "31311:31311"
+    volumes:
+      - nats-nui-db:/db
+    depends_on:
+      nats-central:
+        condition: service_healthy
+	networks:
+      - erp_nats
 
 volumes:
   nats-central-data:
@@ -375,3 +465,8 @@ volumes:
   nats-leaf3-data:
   nats-leaf4-data:
   nats-leaf5-data:
+  nats-nui-db:
+
+networks:
+  erp_nats:
+    name: syncmgmt_erp_nats

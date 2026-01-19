@@ -7,7 +7,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  */
 @ConfigurationProperties(prefix = "syncmgmt")
 public class SyncMgmtProperties {
-    private String tier = "leaf";      // leaf | zone | central
+    private String tier = "leaf";      // leaf | subzone | zone | central
     private String zone = "z1";        // central or z1..zN
     private String subzone = "none";   // sz1..szN or none
     private String nodeId = "node01";  // unique node ID

@@ -4,12 +4,18 @@ import io.nats.client.Connection;
 import io.nats.client.JetStream;
 import io.nats.client.JetStreamManagement;
 import io.nats.client.Nats;
+import com.rms.sync.poc.relay.SyncRelayProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
-@EnableConfigurationProperties(SyncMgmtProperties.class)
+@EnableConfigurationProperties({
+        SyncMgmtProperties.class,          // keep your existing class unchanged
+        JetStreamBootstrapProperties.class,
+        JetStreamStreamsProperties.class,
+        SyncRelayProperties.class
+})
 public class NatsJetStreamConfig {
 
     @Bean(destroyMethod = "close")

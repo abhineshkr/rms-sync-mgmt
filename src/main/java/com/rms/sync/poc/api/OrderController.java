@@ -1,6 +1,7 @@
 package com.rms.sync.poc.api;
 
 import com.rms.sync.core.subject.OriginTier;
+import com.rms.sync.core.subject.SyncDirection;
 import com.rms.sync.core.subject.SyncSubject;
 import com.rms.sync.jetstream.config.SyncMgmtProperties;
 import com.rms.sync.r2dbc.service.OutboxService;
@@ -29,10 +30,11 @@ public class OrderController {
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
     public Mono<Map<String, Object>> create(@Valid @RequestBody OrderCreateRequest req) {
         String subject = SyncSubject.builder()
-                .originTier(OriginTier.valueOf(props.getTier()))
+                .direction(SyncDirection.up)
+                .tier(OriginTier.valueOf(props.getTier()))
                 .zone(props.getZone())
                 .subzone(props.getSubzone())
-                .originNode(props.getNodeId())
+                .node(props.getNodeId())
                 .domain("order")
                 .entity("order")
                 .event("created")

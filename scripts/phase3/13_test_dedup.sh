@@ -3,11 +3,15 @@ set -euo pipefail
 
 source "$(dirname "$0")/_common.sh"
 
-# Test: Duplicate publish -> JetStream dedup.
-# Assertion: CENTRAL_STREAM last_seq increases by exactly 1 for two publishes with the same messageId.
+phase3_prereqs
+log_title "TEST (ROBUST): DEDUP (STREAM LASTSEQ, ADJACENCY)"
+phase3_context
 
-STREAM="CENTRAL_STREAM"
-SUBJECT="central.central.none.central01.audit.logged"
+# Test: Duplicate publish -> JetStream dedup.
+# Assertion: DOWN_CENTRAL_STREAM last_seq increases by exactly 1 for two publishes with the same messageId.
+
+STREAM="DOWN_CENTRAL_STREAM"
+SUBJECT="down.central.z1.sz1.all.audit.dedup"
 
 CENTRAL_ADMIN="${CENTRAL_BASE}"                # http://localhost:18080
 NATS_BOX_CONTAINER="${PROJECT_NAME}-nats-box-1"

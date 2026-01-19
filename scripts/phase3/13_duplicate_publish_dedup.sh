@@ -2,12 +2,15 @@
 set -euo pipefail
 source "$(dirname "$0")/_common.sh"
 
-# Aligns to expectation: "Duplicate publish -> Deduped".
-# Publishes twice with the same messageId and verifies CENTRAL_STREAM lastSeq increases by exactly 1.
+phase3_prereqs
+log_title "TEST: DUPLICATE PUBLISH DEDUP (ADJACENCY)"
+phase3_context
+
+# Publishes twice with the same messageId and verifies DOWN_CENTRAL_STREAM lastSeq increases by exactly 1.
 
 CENTRAL_ADMIN="${CENTRAL_BASE:-http://localhost:18080}"
-STREAM="CENTRAL_STREAM"
-SUBJECT="central.central.none.central01.order.created"
+STREAM="DOWN_CENTRAL_STREAM"
+SUBJECT="down.central.z1.sz1.all.audit.dedup"
 MSG_ID="dedup-$(date +%s)"
 
 echo "Baseline: reading ${STREAM} lastSeq from ${CENTRAL_ADMIN} ..."
@@ -48,8 +51,6 @@ a=int("${after}")
 if a == b + 1:
     print("PASS: dedup validated (lastSeq increased by exactly 1).")
     raise SystemExit(0)
-
-# Helpful diagnostic
 print(f"FAIL: expected lastSeq to increase by 1; baseline={b} after={a}")
 raise SystemExit(1)
 PY

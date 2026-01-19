@@ -2,7 +2,11 @@
 set -euo pipefail
 source "$(dirname "$0")/_common.sh"
 
-cat <<'EOF'
+phase3_prereqs
+log_title "TEST: LEAF OFFLINE OUTBOX RETENTION"
+phase3_context
+
+cat >&2 <<'EOF'
 TEST: Leaf messaging offline -> outbox retained, then published on recovery
 
 PASS CRITERIA (DETERMINISTIC)
@@ -10,19 +14,19 @@ PASS CRITERIA (DETERMINISTIC)
 2) Leaf1 business API continues to accept requests (HTTP 2xx on /api/orders),
    meaning outbox rows are created while messaging is down.
 3) Restart nats-leaf1.
-4) Outbox pending rows drain to 0 AND JetStream LEAF_STREAM last_seq increases
+4) Outbox pending rows drain to 0 AND JetStream UP_LEAF_STREAM last_seq increases
    by at least N relative to baseline after recovery.
 
 EVIDENCE TO CAPTURE
 - Outbox pending count after publishing while nats-leaf1 is down
-- Baseline and final LEAF_STREAM last_seq
+- Baseline and final UP_LEAF_STREAM last_seq
 - Final outbox pending count (0)
 EOF
 
 PUBLISH_COUNT="${1:-10}"
 
 LEAF1_API="${LEAF1_BASE}/api/orders"       # typically http://localhost:18081/api/orders
-STREAM="LEAF_STREAM"
+STREAM="UP_LEAF_STREAM"
 
 # JetStream query via nats-box to central (authoritative stream)
 NATS_BOX_CONTAINER="${PROJECT_NAME}-nats-box-1"
@@ -50,7 +54,7 @@ _outbox_pending_count() {
 }
 
 cleanup() {
-  _dc start nats-leaf1 >/dev/null 2>&1 || true
+  _dc start nats-leaf1 2>&1 || true
 }
 trap cleanup EXIT
 
@@ -63,9 +67,9 @@ _dc stop nats-leaf1
 stamp="$(date +%s)"
 echo "Creating ${PUBLISH_COUNT} outbox events on Leaf1 while its NATS server is offline ..."
 for i in $(seq 1 "${PUBLISH_COUNT}"); do
-  _http POST "${LEAF1_API}" \
+  _http_discard POST "${LEAF1_API}" \
     -H "Content-Type: application/json" \
-    -d "{\"orderId\":\"leaf-offline-${stamp}-${i}\",\"amount\":3.00}" >/dev/null
+    -d "{\"orderId\":\"leaf-offline-${stamp}-${i}\",\"amount\":3.00}"
 done
 echo "Published ${PUBLISH_COUNT} business events (runId=${stamp})."
 

@@ -3,20 +3,29 @@ set -euo pipefail
 
 source "$(dirname "$0")/_common.sh"
 
-# Test: App crash -> outbox replay on restart.
-#
-# Assertion: LEAF_STREAM last_seq increases by >= 1 after restarting sync-leaf1
-# (validated via nats-box -> nats-central), which is robust under Interest retention.
+phase3_prereqs
+log_title "TEST (ROBUST): APP CRASH -> OUTBOX REPLAY (STREAM LASTSEQ)"
+phase3_context
 
-LEAF1_ADMIN="http://localhost:18081"
-LEAF1_API="http://localhost:18081/api/orders"
-STREAM="LEAF_STREAM"
+cat >&2 <<'EOF2'
+TEST: App crash -> outbox replay on restart.
+
+EXPECTED OUTPUT / PASS CRITERIA
+- Create an order on Leaf1 (HTTP 2xx).
+- Stop sync-leaf1 quickly to simulate crash before dispatcher runs.
+- Restart sync-leaf1.
+- UP_LEAF_STREAM lastSeq increases by >= 1 (observed via nats-box -> nats-central).
+EOF2
+
+LEAF1_ADMIN="${LEAF1_BASE}"
+LEAF1_API="${LEAF1_BASE}/api/orders"
+STREAM="UP_LEAF_STREAM"
 
 NATS_BOX_CONTAINER="${PROJECT_NAME}-nats-box-1"
 NATS_SERVER="nats://nats-central:4222"
 
 cleanup() {
-  _dc start sync-leaf1 >/dev/null 2>&1 || true
+  _dc start sync-leaf1 2>&1 || true
 }
 trap cleanup EXIT
 
@@ -29,76 +38,71 @@ _js_stream_last_seq() {
   out="$(_js stream info "${STREAM}" --json 2>&1 || true)"
   [[ -z "$out" ]] && out="$(_js stream info "${STREAM}" 2>&1 || true)"
 
-  val="$(printf "%s" "$out" | python3 -c '
+  val="$(printf "%s" "$out" | python3 - <<'PY'
 import sys, json, re
-raw = sys.stdin.read().strip()
+raw=sys.stdin.read().strip()
 if not raw:
     print(""); raise SystemExit(0)
-
-# strip ANSI just in case
-raw = re.sub(r"\x1b\[[0-9;?]*[A-Za-z]", "", raw).strip()
-
+raw=re.sub(r"\x1b\[[0-9;?]*[A-Za-z]", "", raw).strip()
 # try direct JSON first
-d = None
 try:
     if raw.startswith("{"):
-        d = json.loads(raw)
+        d=json.loads(raw)
+    else:
+        m=re.search(r"(\{.*\})", raw, re.S)
+        d=json.loads(m.group(1)) if m else None
 except Exception:
-    d = None
-
-# else try to extract JSON block
-if d is None:
-    m = re.search(r"(\{.*\})", raw, re.S)
-    if m:
-        try: d = json.loads(m.group(1))
-        except Exception: d = None
-
+    d=None
 if isinstance(d, dict) and isinstance(d.get("state"), dict) and "last_seq" in d["state"]:
     print(d["state"]["last_seq"])
 else:
     print("")
-')"
+PY
+)"
 
   if [[ -z "$val" ]]; then
-    echo "DEBUG: unable to parse ${STREAM} lastSeq. Raw output follows:" >&2
-    echo "$out" >&2
+    log_warn "Unable to parse ${STREAM} lastSeq; raw output (first 60 lines) follows"
+    echo "$out" | head -n 60 >&2
   fi
   printf "%s" "$val"
 }
 
+log_step "Ensure Leaf1 is reachable"
+_wait_for_http "${LEAF1_ADMIN}/poc/ping" 120 2
 
 before_last="$(_js_stream_last_seq)"
 if [[ -z "$before_last" ]]; then
-  echo "FAIL: unable to read ${STREAM} lastSeq from JetStream (nats-box -> nats-central)" >&2
+  log_fail "Unable to read ${STREAM} lastSeq from JetStream (nats-box -> nats-central)"
   exit 1
 fi
-echo "Baseline: ${STREAM} lastSeq=${before_last}"
+log_info "Baseline: ${STREAM} lastSeq=${before_last}"
 
 RUN_ID="$(date +%s)"
 ORDER_ID="p3-outbox-crash-${RUN_ID}"
 
-# Create an outbox event (intended to not publish immediately due to long poll interval)
-_http POST "$LEAF1_API" -H "Content-Type: application/json" \
-  -d "{\"orderId\":\"${ORDER_ID}\",\"amount\":9.99}" >/dev/null
+log_step "Create an order (writes outbox row; publish may be delayed)"
+_http_discard POST "${LEAF1_API}" -H "Content-Type: application/json" \
+  -d "{\"orderId\":\"${ORDER_ID}\",\"amount\":9.99}"
 
-echo "Stopping sync-leaf1 before dispatcher publishes..."
+log_step "Stop sync-leaf1 before dispatcher publishes (simulate crash)"
 _dc stop sync-leaf1
 sleep 2
 
-echo "Restarting sync-leaf1 (dispatcher should replay outbox)..."
+log_step "Restart sync-leaf1 (dispatcher should replay outbox)"
 _dc start sync-leaf1
 _wait_for_http "${LEAF1_ADMIN}/poc/ping" 60 2
 
-echo "Waiting for ${STREAM} lastSeq to increase (>= baseline+1) ..."
+log_step "Wait for ${STREAM} lastSeq to increase (>= baseline+1)"
 target=$((before_last + 1))
-for i in $(seq 1 90); do
+for _ in $(seq 1 90); do
   now_last="$(_js_stream_last_seq || true)"
   if [[ -n "$now_last" ]] && [[ "$now_last" -ge "$target" ]]; then
-    echo "PASS: outbox replay published at least 1 message (baseline=${before_last} now=${now_last})"
+    log_ok "Outbox replay observed (baseline=${before_last} now=${now_last})"
+    echo "PASS: outbox replay published at least 1 message after restart."
     exit 0
   fi
   sleep 2
 done
 
-echo "FAIL: ${STREAM} lastSeq did not increase; baseline=${before_last} lastSeq=${now_last:-<unknown>}" >&2
+log_fail "${STREAM} lastSeq did not increase; baseline=${before_last} lastSeq=${now_last:-<unknown>}"
 exit 1

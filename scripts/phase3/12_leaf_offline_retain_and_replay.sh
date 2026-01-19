@@ -2,7 +2,11 @@
 set -euo pipefail
 source "$(dirname "$0")/_common.sh"
 
-cat <<EOF
+phase3_prereqs
+log_title "TEST: LEAF OFFLINE RETAIN + REPLAY"
+phase3_context
+
+cat >&2 <<'EOF'
 TEST: Leaf messaging offline / outbox retention + replay
 
 EXPECTED OUTPUT / PASS CRITERIA
@@ -44,7 +48,7 @@ require_outbox_table() {
 
 cleanup() {
   # Ensure leaf NATS is brought back even on failure
-  _dc start nats-leaf1 >/dev/null 2>&1 || true
+  _dc start nats-leaf1 2>&1 || true
 }
 trap cleanup EXIT
 
@@ -61,9 +65,9 @@ _dc stop nats-leaf1
 stamp="$(date +%s)"
 echo "Creating ${PUBLISH_COUNT} orders on Leaf1 while its NATS server is down (events should remain in outbox) ..."
 for i in $(seq 1 "${PUBLISH_COUNT}"); do
-  _http POST "${LEAF1_BASE}/api/orders" \
+  _http_discard POST "${LEAF1_BASE}/api/orders" \
     -H "Content-Type: application/json" \
-    -d "{\"orderId\":\"leaf-offline-${stamp}-${i}\",\"amount\":1.00}" >/dev/null
+    -d "{\"orderId\":\"leaf-offline-${stamp}-${i}\",\"amount\":1.00}"
 done
 
 # Give dispatcher a moment to attempt publishes and record retries
