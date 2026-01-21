@@ -15,6 +15,27 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 COMPOSE_FILE="$ROOT_DIR/docker-compose.phase3.yml"
 PROJECT_NAME="${COMPOSE_PROJECT_NAME:-syncmgmt_phase3}"
 
+
+# -----------------------------
+# Topology + NATS credentials (config-driven)
+# -----------------------------
+# config/topology.yml is written in JSON syntax (valid YAML), so we can parse it without PyYAML.
+TOPOLOGY_FILE="${SYNC_TOPOLOGY_FILE:-$ROOT_DIR/config/topology.yml}"
+TOPOLOGY_TOOL="$ROOT_DIR/scripts/tools/topology.py"
+
+# Compose interpolation inputs (defaults from topology.yml).
+SYNC_CENTRAL_ID="${SYNC_CENTRAL_ID:-$(python3 "$TOPOLOGY_TOOL" get topology.centralId)}"
+SYNC_NATS_USERNAME="${SYNC_NATS_USERNAME:-$(python3 "$TOPOLOGY_TOOL" get auth.admin.username)}"
+SYNC_NATS_PASSWORD="${SYNC_NATS_PASSWORD:-$(python3 "$TOPOLOGY_TOOL" get auth.admin.password)}"
+export SYNC_CENTRAL_ID SYNC_NATS_USERNAME SYNC_NATS_PASSWORD
+
+# Generate nats/generated/authz_<centralId>.conf (mounted into every NATS container).
+phase3_generate_nats_authz() {
+  local out="$ROOT_DIR/nats/generated/authz_${SYNC_CENTRAL_ID}.conf"
+  mkdir -p "$(dirname "$out")"
+  python3 "$TOPOLOGY_TOOL" nats-authz > "$out"
+}
+
 # Default ports (override via env)
 CENTRAL_HTTP_PORT="${CENTRAL_HTTP_PORT:-18080}"
 LEAF1_HTTP_PORT="${LEAF1_HTTP_PORT:-18081}"
@@ -50,6 +71,8 @@ phase3_prereqs() {
     log_fail "Compose file not found: $COMPOSE_FILE"
     exit 1
   fi
+  # Ensure authentication file exists (required by mounted NATS configs)
+  phase3_generate_nats_authz
 }
 
 phase3_context() {

@@ -23,7 +23,7 @@ CENTRAL_ADMIN="${CENTRAL_BASE}"
 LEAF2_PING="http://localhost:18084/poc/ping"
 
 NATS_BOX_CONTAINER="${PROJECT_NAME}-nats-box-1"
-NATS_SERVER="nats://nats-central:4222"
+NATS_SERVER="nats://${SYNC_NATS_USERNAME}:${SYNC_NATS_PASSWORD}@nats-central:4222"
 
 PUBLISH_COUNT="${1:-15}"
 

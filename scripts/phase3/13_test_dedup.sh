@@ -15,7 +15,7 @@ SUBJECT="down.central.z1.sz1.all.audit.dedup"
 
 CENTRAL_ADMIN="${CENTRAL_BASE}"                # http://localhost:18080
 NATS_BOX_CONTAINER="${PROJECT_NAME}-nats-box-1"
-NATS_SERVER="nats://nats-central:4222"
+NATS_SERVER="nats://${SYNC_NATS_USERNAME}:${SYNC_NATS_PASSWORD}@nats-central:4222"
 
 RUN_ID="$(date +%s)"
 MSG_ID="p3-dedup-${RUN_ID}"

@@ -5,6 +5,7 @@ services:
     command: ["-c", "/etc/nats/nats.conf"]
     volumes:
       - ./nats/central.conf:/etc/nats/nats.conf:ro
+      - ./nats/generated/authz_${SYNC_CENTRAL_ID}.conf:/etc/nats/authz.conf:ro
       - nats-central-data:/data
     ports:
       - "4222:4222"
@@ -23,6 +24,7 @@ services:
     command: ["-c", "/etc/nats/nats.conf"]
     volumes:
       - ./nats/zone.conf:/etc/nats/nats.conf:ro
+      - ./nats/generated/authz_${SYNC_CENTRAL_ID}.conf:/etc/nats/authz.conf:ro
       - nats-zone-data:/data
     ports:
       - "4223:4222"
@@ -41,6 +43,7 @@ services:
     command: ["-c", "/etc/nats/nats.conf"]
     volumes:
       - ./nats/subzone.conf:/etc/nats/nats.conf:ro
+      - ./nats/generated/authz_${SYNC_CENTRAL_ID}.conf:/etc/nats/authz.conf:ro
       - nats-subzone-data:/data
     ports:
       - "4224:4222"
@@ -59,6 +62,7 @@ services:
     command: ["-c", "/etc/nats/nats.conf"]
     volumes:
       - ./nats/leaf1.conf:/etc/nats/nats.conf:ro
+      - ./nats/generated/authz_${SYNC_CENTRAL_ID}.conf:/etc/nats/authz.conf:ro
       - nats-leaf1-data:/data
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8222/varz >/dev/null 2>&1 || exit 1"]
@@ -74,6 +78,7 @@ services:
     command: ["-c", "/etc/nats/nats.conf"]
     volumes:
       - ./nats/leaf2.conf:/etc/nats/nats.conf:ro
+      - ./nats/generated/authz_${SYNC_CENTRAL_ID}.conf:/etc/nats/authz.conf:ro
       - nats-leaf2-data:/data
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8222/varz >/dev/null 2>&1 || exit 1"]
@@ -89,6 +94,7 @@ services:
     command: ["-c", "/etc/nats/nats.conf"]
     volumes:
       - ./nats/leaf3.conf:/etc/nats/nats.conf:ro
+      - ./nats/generated/authz_${SYNC_CENTRAL_ID}.conf:/etc/nats/authz.conf:ro
       - nats-leaf3-data:/data
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8222/varz >/dev/null 2>&1 || exit 1"]
@@ -104,6 +110,7 @@ services:
     command: ["-c", "/etc/nats/nats.conf"]
     volumes:
       - ./nats/leaf4.conf:/etc/nats/nats.conf:ro
+      - ./nats/generated/authz_${SYNC_CENTRAL_ID}.conf:/etc/nats/authz.conf:ro
       - nats-leaf4-data:/data
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8222/varz >/dev/null 2>&1 || exit 1"]
@@ -119,6 +126,7 @@ services:
     command: ["-c", "/etc/nats/nats.conf"]
     volumes:
       - ./nats/leaf5.conf:/etc/nats/nats.conf:ro
+      - ./nats/generated/authz_${SYNC_CENTRAL_ID}.conf:/etc/nats/authz.conf:ro
       - nats-leaf5-data:/data
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8222/varz >/dev/null 2>&1 || exit 1"]
@@ -144,7 +152,7 @@ services:
       DB_NAME: dockyard_dev
       DB_USER: postgres
       DB_PASSWORD: postgres
-      NATS_URL: nats://nats-central:4222
+      NATS_URL: nats://${SYNC_NATS_USERNAME}:${SYNC_NATS_PASSWORD}@nats-central:4222
       SERVER_PORT: 8080
       SYNC_TIER: central
       SYNC_ZONE: central
@@ -180,7 +188,7 @@ services:
       DB_NAME: dockyard_dev
       DB_USER: postgres
       DB_PASSWORD: postgres
-      NATS_URL: nats://nats-zone:4222
+      NATS_URL: nats://${SYNC_NATS_USERNAME}:${SYNC_NATS_PASSWORD}@nats-zone:4222
       SERVER_PORT: 8080
       SYNC_TIER: zone
       SYNC_ZONE: z1
@@ -216,7 +224,7 @@ services:
       DB_NAME: dockyard_dev
       DB_USER: postgres
       DB_PASSWORD: postgres
-      NATS_URL: nats://nats-subzone:4222
+      NATS_URL: nats://${SYNC_NATS_USERNAME}:${SYNC_NATS_PASSWORD}@nats-subzone:4222
       SERVER_PORT: 8080
       SYNC_TIER: subzone
       SYNC_ZONE: z1
@@ -252,7 +260,7 @@ services:
       DB_NAME: dockyard_dev
       DB_USER: postgres
       DB_PASSWORD: postgres
-      NATS_URL: nats://nats-leaf1:4222
+      NATS_URL: nats://${SYNC_NATS_USERNAME}:${SYNC_NATS_PASSWORD}@nats-leaf1:4222
       SERVER_PORT: 8080
       SYNC_TIER: leaf
       SYNC_ZONE: z1
@@ -284,7 +292,7 @@ services:
       DB_NAME: dockyard_dev
       DB_USER: postgres
       DB_PASSWORD: postgres
-      NATS_URL: nats://nats-leaf2:4222
+      NATS_URL: nats://${SYNC_NATS_USERNAME}:${SYNC_NATS_PASSWORD}@nats-leaf2:4222
       SERVER_PORT: 8080
       SYNC_TIER: leaf
       SYNC_ZONE: z1
@@ -317,7 +325,7 @@ services:
       DB_NAME: dockyard_dev
       DB_USER: postgres
       DB_PASSWORD: postgres
-      NATS_URL: nats://nats-leaf3:4222
+      NATS_URL: nats://${SYNC_NATS_USERNAME}:${SYNC_NATS_PASSWORD}@nats-leaf3:4222
       SERVER_PORT: 8080
       SYNC_TIER: leaf
       SYNC_ZONE: z1
@@ -350,7 +358,7 @@ services:
       DB_NAME: dockyard_dev
       DB_USER: postgres
       DB_PASSWORD: postgres
-      NATS_URL: nats://nats-leaf4:4222
+      NATS_URL: nats://${SYNC_NATS_USERNAME}:${SYNC_NATS_PASSWORD}@nats-leaf4:4222
       SERVER_PORT: 8080
       SYNC_TIER: leaf
       SYNC_ZONE: z1
@@ -383,7 +391,7 @@ services:
       DB_NAME: dockyard_dev
       DB_USER: postgres
       DB_PASSWORD: postgres
-      NATS_URL: nats://nats-leaf5:4222
+      NATS_URL: nats://${SYNC_NATS_USERNAME}:${SYNC_NATS_PASSWORD}@nats-leaf5:4222
       SERVER_PORT: 8080
       SYNC_TIER: leaf
       SYNC_ZONE: z1
@@ -408,7 +416,7 @@ services:
     entrypoint: ["/bin/sh", "-c"]
     command: ["tail -f /dev/null"]
     environment:
-      NATS_URL: nats://nats-central:4222
+      NATS_URL: nats://${SYNC_NATS_USERNAME}:${SYNC_NATS_PASSWORD}@nats-central:4222
     depends_on:
       nats-central:
         condition: service_healthy

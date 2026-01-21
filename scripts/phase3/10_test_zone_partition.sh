@@ -53,7 +53,7 @@ HTTP_BASE="${LEAF1_BASE}"
 
 PROJECT_NAME="${PROJECT_NAME:-syncmgmt_phase3}"
 NATS_BOX_CONTAINER="${PROJECT_NAME}-nats-box-1"
-NATS_SERVER="nats://nats-central:4222"
+NATS_SERVER="nats://${SYNC_NATS_USERNAME}:${SYNC_NATS_PASSWORD}@nats-central:4222"
 
 PUBLISH_COUNT="${1:-25}"
 

@@ -22,7 +22,7 @@ LEAF1_API="${LEAF1_BASE}/api/orders"
 STREAM="UP_LEAF_STREAM"
 
 NATS_BOX_CONTAINER="${PROJECT_NAME}-nats-box-1"
-NATS_SERVER="nats://nats-central:4222"
+NATS_SERVER="nats://${SYNC_NATS_USERNAME}:${SYNC_NATS_PASSWORD}@nats-central:4222"
 
 cleanup() {
   _dc start sync-leaf1 2>&1 || true

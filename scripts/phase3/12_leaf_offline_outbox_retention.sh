@@ -30,7 +30,7 @@ STREAM="UP_LEAF_STREAM"
 
 # JetStream query via nats-box to central (authoritative stream)
 NATS_BOX_CONTAINER="${PROJECT_NAME}-nats-box-1"
-NATS_SERVER="nats://nats-central:4222"
+NATS_SERVER="nats://${SYNC_NATS_USERNAME}:${SYNC_NATS_PASSWORD}@nats-central:4222"
 
 _js() {
   docker exec -i "${NATS_BOX_CONTAINER}" nats --server "${NATS_SERVER}" "$@"

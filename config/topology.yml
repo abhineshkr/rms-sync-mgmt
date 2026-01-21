@@ -1,0 +1,220 @@
+{
+  "topology": {
+    "centralId": "nhq",
+    "zones": [
+      "snc",
+      "enc",
+      "wnc"
+    ],
+    "subzonesPerZone": [
+      "unit1",
+      "unit2"
+    ],
+    "leavesPerAttachment": [
+      "desk1",
+      "desk2"
+    ],
+    "defaults": {
+      "upSuffix": "sales.order.created",
+      "downSuffix": "config.policy.updated",
+      "zoneForCentralAttachedLeaves": "nhq",
+      "subzoneTokenForNonSubzone": "none"
+    },
+    "timeouts": {
+      "cliTimeout": "5s",
+      "httpTimeout": "15s",
+      "startupTimeoutSeconds": 180,
+      "drainTimeoutSeconds": 180,
+      "pollIntervalSeconds": 1,
+      "pullBatchSize": 50
+    }
+  },
+  "taxonomy": {
+    "upstream": {
+      "leaf": "up.leaf.{centralId}.{parentTier}.{zone}.{subzoneOrNone}.{leafId}.{domain}.{entity}.{event}",
+      "subzone": "up.subzone.{centralId}.{zone}.{subzone}.{domain}.{entity}.{event}",
+      "zone": "up.zone.{centralId}.{zone}.{domain}.{entity}.{event}"
+    },
+    "downstream": {
+      "centralToZone": "down.central.{centralId}.zone.{zone}.{domain}.{entity}.{event}",
+      "centralToLeaf": "down.central.{centralId}.leaf.{zone}.{leafId}.{domain}.{entity}.{event}",
+      "zoneToSubzone": "down.zone.{centralId}.subzone.{zone}.{subzone}.{domain}.{entity}.{event}",
+      "zoneToLeaf": "down.zone.{centralId}.leaf.{zone}.{leafId}.{domain}.{entity}.{event}",
+      "subzoneToLeaf": "down.subzone.{centralId}.leaf.{zone}.{subzone}.{leafId}.{domain}.{entity}.{event}"
+    }
+  },
+  "streams": {
+    "UP_LEAF_STREAM": {
+      "name": "UP_LEAF_STREAM",
+      "subjects": [
+        "up.leaf.nhq.>"
+      ],
+      "retention": "workqueue",
+      "storage": "file",
+      "replicas": 1,
+      "maxAge": "168h"
+    },
+    "UP_SUBZONE_STREAM": {
+      "name": "UP_SUBZONE_STREAM",
+      "subjects": [
+        "up.subzone.nhq.>"
+      ],
+      "retention": "workqueue",
+      "storage": "file",
+      "replicas": 1,
+      "maxAge": "168h"
+    },
+    "UP_ZONE_STREAM": {
+      "name": "UP_ZONE_STREAM",
+      "subjects": [
+        "up.zone.nhq.>"
+      ],
+      "retention": "workqueue",
+      "storage": "file",
+      "replicas": 1,
+      "maxAge": "168h"
+    },
+    "DOWN_CENTRAL_STREAM": {
+      "name": "DOWN_CENTRAL_STREAM",
+      "subjects": [
+        "down.central.nhq.>"
+      ],
+      "retention": "interest",
+      "storage": "file",
+      "replicas": 1,
+      "maxAge": "168h"
+    },
+    "DOWN_ZONE_STREAM": {
+      "name": "DOWN_ZONE_STREAM",
+      "subjects": [
+        "down.zone.nhq.>"
+      ],
+      "retention": "interest",
+      "storage": "file",
+      "replicas": 1,
+      "maxAge": "168h"
+    },
+    "DOWN_SUBZONE_STREAM": {
+      "name": "DOWN_SUBZONE_STREAM",
+      "subjects": [
+        "down.subzone.nhq.>"
+      ],
+      "retention": "interest",
+      "storage": "file",
+      "replicas": 1,
+      "maxAge": "168h"
+    }
+  },
+  "consumers": {
+    "naming": {
+      "upLeafSubzoneRelay": "up_leaf__subzone__{zone}__{subzone}",
+      "upLeafZoneRelay": "up_leaf__zone__{zone}",
+      "upLeafCentralRelay": "up_leaf__central__{zone}",
+      "upSubzoneZoneRelay": "up_subzone__{zone}__{subzone}",
+      "upZoneCentralRelay": "up_zone__{zone}",
+      "downCentralZoneRelay": "down_central__zone__{zone}",
+      "downZoneSubzoneRelay": "down_zone__subzone__{zone}__{subzone}",
+      "downSubzoneLeaf": "down_subzone__leaf__{zone}__{subzone}__{leafId}",
+      "downZoneLeaf": "down_zone__leaf__{zone}__{leafId}",
+      "downCentralLeaf": "down_central__leaf__{zone}__{leafId}"
+    }
+  },
+  "auth": {
+    "admin": {
+      "username": "js_admin_nhq",
+      "password": "pwd_js_admin_nhq",
+      "publishAllow": [
+        ">"
+      ],
+      "subscribeAllow": [
+        ">"
+      ]
+    },
+    "passwordPrefix": "pwd_",
+    "jsClientInternal": {
+      "publishAllow": [
+        "$JS.API.INFO",
+        "$JS.API.CONSUMER.INFO.*.*",
+        "$JS.API.CONSUMER.MSG.NEXT.*.*",
+        "$JS.ACK.>",
+        "$JS.FC.>"
+      ],
+      "subscribeAllow": [
+        "_INBOX.>"
+      ]
+    },
+    "enabled": true,
+    "enforcePermissions": false,
+    "mode": "basic"
+  },
+  "roles": {
+    "relayCentral": {
+      "userTemplate": "relay_central_{centralId}",
+      "publish": [
+        "down.central.{centralId}.zone.*.>",
+        "down.central.{centralId}.leaf.*.*.>"
+      ],
+      "subscribe": [
+        "up.zone.{centralId}.*.>",
+        "up.leaf.{centralId}.central.{zoneForCentralAttachedLeaves}.none.*.>"
+      ]
+    },
+    "relayZone": {
+      "userTemplate": "relay_zone_{centralId}_{zone}",
+      "publish": [
+        "up.zone.{centralId}.{zone}.>",
+        "down.zone.{centralId}.subzone.{zone}.unit1.>",
+        "down.zone.{centralId}.subzone.{zone}.unit2.>",
+        "down.zone.{centralId}.leaf.{zone}.desk1.>",
+        "down.zone.{centralId}.leaf.{zone}.desk2.>"
+      ],
+      "subscribe": [
+        "down.central.{centralId}.zone.{zone}.>",
+        "up.subzone.{centralId}.{zone}.unit1.>",
+        "up.subzone.{centralId}.{zone}.unit2.>",
+        "up.leaf.{centralId}.zone.{zone}.none.desk1.>",
+        "up.leaf.{centralId}.zone.{zone}.none.desk2.>"
+      ]
+    },
+    "relaySubzone": {
+      "userTemplate": "relay_subzone_{centralId}_{zone}_{subzone}",
+      "publish": [
+        "up.subzone.{centralId}.{zone}.{subzone}.>",
+        "down.subzone.{centralId}.leaf.{zone}.{subzone}.desk1.>",
+        "down.subzone.{centralId}.leaf.{zone}.{subzone}.desk2.>"
+      ],
+      "subscribe": [
+        "down.zone.{centralId}.subzone.{zone}.{subzone}.>",
+        "up.leaf.{centralId}.subzone.{zone}.{subzone}.desk1.>",
+        "up.leaf.{centralId}.subzone.{zone}.{subzone}.desk2.>"
+      ]
+    },
+    "leafCentral": {
+      "userTemplate": "leaf_{centralId}_central_{zoneForCentralAttachedLeaves}_none_{leafId}",
+      "publish": [
+        "up.leaf.{centralId}.central.{zoneForCentralAttachedLeaves}.none.{leafId}.>"
+      ],
+      "subscribe": [
+        "down.central.{centralId}.leaf.{zoneForCentralAttachedLeaves}.{leafId}.>"
+      ]
+    },
+    "leafZone": {
+      "userTemplate": "leaf_{centralId}_zone_{zone}_none_{leafId}",
+      "publish": [
+        "up.leaf.{centralId}.zone.{zone}.none.{leafId}.>"
+      ],
+      "subscribe": [
+        "down.zone.{centralId}.leaf.{zone}.{leafId}.>"
+      ]
+    },
+    "leafSubzone": {
+      "userTemplate": "leaf_{centralId}_subzone_{zone}_{subzone}_{leafId}",
+      "publish": [
+        "up.leaf.{centralId}.subzone.{zone}.{subzone}.{leafId}.>"
+      ],
+      "subscribe": [
+        "down.subzone.{centralId}.leaf.{zone}.{subzone}.{leafId}.>"
+      ]
+    }
+  }
+}

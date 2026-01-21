@@ -58,8 +58,8 @@ STREAM_UP_ZONE="UP_ZONE_STREAM"
 PROJECT_NAME="${PROJECT_NAME:-syncmgmt_phase3}"
 NATS_BOX_CONTAINER="${PROJECT_NAME}-nats-box-1"
 
-SUBZONE_NATS="nats://nats-subzone:4222"
-CENTRAL_NATS="nats://nats-central:4222"
+SUBZONE_NATS="nats://${SYNC_NATS_USERNAME}:${SYNC_NATS_PASSWORD}@nats-subzone:4222"
+CENTRAL_NATS="nats://${SYNC_NATS_USERNAME}:${SYNC_NATS_PASSWORD}@nats-central:4222"
 
 cleanup() {
   # Never leave the environment partitioned.
