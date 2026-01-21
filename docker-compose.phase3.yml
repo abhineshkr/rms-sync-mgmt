@@ -139,7 +139,7 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     environment:
-      DB_HOST: 192.168.1.13
+      DB_HOST: 192.168.3.99
       DB_PORT: 5436
       DB_NAME: dockyard_dev
       DB_USER: postgres
@@ -175,7 +175,7 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     environment:
-      DB_HOST: 192.168.1.13
+      DB_HOST: 192.168.3.99
       DB_PORT: 5436
       DB_NAME: dockyard_dev
       DB_USER: postgres
@@ -211,7 +211,7 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     environment:
-      DB_HOST: 192.168.1.13
+      DB_HOST: 192.168.3.99
       DB_PORT: 5436
       DB_NAME: dockyard_dev
       DB_USER: postgres
@@ -247,7 +247,7 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     environment:
-      DB_HOST: 192.168.1.13
+      DB_HOST: 192.168.3.99
       DB_PORT: 5436
       DB_NAME: dockyard_dev
       DB_USER: postgres
@@ -279,7 +279,7 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     environment:
-      DB_HOST: 192.168.1.13
+      DB_HOST: 192.168.3.99
       DB_PORT: 5436
       DB_NAME: dockyard_dev
       DB_USER: postgres
@@ -312,7 +312,7 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     environment:
-      DB_HOST: 192.168.1.13
+      DB_HOST: 192.168.3.99
       DB_PORT: 5436
       DB_NAME: dockyard_dev
       DB_USER: postgres
@@ -345,7 +345,7 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     environment:
-      DB_HOST: 192.168.1.13
+      DB_HOST: 192.168.3.99
       DB_PORT: 5436
       DB_NAME: dockyard_dev
       DB_USER: postgres
@@ -378,7 +378,7 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     environment:
-      DB_HOST: 192.168.1.13
+      DB_HOST: 192.168.3.99
       DB_PORT: 5436
       DB_NAME: dockyard_dev
       DB_USER: postgres
@@ -441,19 +441,6 @@ services:
       nats-central:
         condition: service_healthy
     networks:
-      - erp_nats
-  nats-nui:
-    image: ghcr.io/nats-nui/nui:latest
-    container_name: syncmgmt_phase3-nats-nui
-    restart: unless-stopped
-    ports:
-      - "31311:31311"
-    volumes:
-      - nats-nui-db:/db
-    depends_on:
-      nats-central:
-        condition: service_healthy
-	networks:
       - erp_nats
 
 volumes:

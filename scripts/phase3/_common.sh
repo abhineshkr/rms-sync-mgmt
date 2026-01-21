@@ -189,3 +189,42 @@ require_outbox_table() {
   fi
   log_ok "Found table sync_outbox_event in DB '$DB_NAME'."
 }
+
+
+# -----------------------------
+# Interactive helper
+# -----------------------------
+# PHASE3_INTERACTIVE:
+#   1 (default) => prompt user at checkpoints
+#   0           => auto-continue (CI/non-interactive)
+PHASE3_INTERACTIVE="${PHASE3_INTERACTIVE:-1}"
+
+confirm() {
+  local prompt="$1"
+  local default_no="${2:-1}" # 1 => default No, 0 => default Yes
+
+  if [[ "${PHASE3_INTERACTIVE}" != "1" ]]; then
+    log_info "NON-INTERACTIVE: ${prompt} -> auto-continue"
+    return 0
+  fi
+
+  if [[ ! -t 0 ]]; then
+    log_warn "No TTY available for prompt: ${prompt} -> auto-continue"
+    return 0
+  fi
+
+  local suffix
+  if [[ "$default_no" -eq 1 ]]; then suffix="[y/N]"; else suffix="[Y/n]"; fi
+
+  while true; do
+    read -r -p "${prompt} ${suffix}: " ans
+    if [[ -z "${ans}" ]]; then
+      [[ "$default_no" -eq 1 ]] && return 1 || return 0
+    fi
+    case "${ans,,}" in
+      y|yes) return 0 ;;
+      n|no)  return 1 ;;
+      *) echo "Please answer y/yes or n/no." ;;
+    esac
+  done
+}

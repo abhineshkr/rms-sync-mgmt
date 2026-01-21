@@ -1,34 +1,35 @@
 package com.rms.sync.poc.relay;
 
+import java.time.Duration;
+import java.util.concurrent.atomic.AtomicReference;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
+import org.springframework.stereotype.Component;
+
 import com.rms.sync.core.subject.OriginTier;
 import com.rms.sync.core.subject.SyncDirection;
 import com.rms.sync.core.subject.SyncSubject;
 import com.rms.sync.jetstream.config.SyncMgmtProperties;
 import com.rms.sync.jetstream.naming.ConsumerName;
-import io.nats.client.Headers;
+
 import io.nats.client.JetStream;
 import io.nats.client.JetStreamApiException;
 import io.nats.client.JetStreamSubscription;
 import io.nats.client.Message;
-import io.nats.client.PullSubscribeOptions;
 import io.nats.client.PublishOptions;
+import io.nats.client.PullSubscribeOptions;
 import io.nats.client.api.AckPolicy;
 import io.nats.client.api.ConsumerConfiguration;
 import io.nats.client.api.DeliverPolicy;
 import io.nats.client.api.ReplayPolicy;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.context.event.EventListener;
-import org.springframework.stereotype.Component;
-import org.springframework.boot.context.event.ApplicationReadyEvent;
+import io.nats.client.impl.Headers;
 import reactor.core.Disposable;
 import reactor.core.publisher.Flux;
 import reactor.core.scheduler.Schedulers;
-
-import java.time.Duration;
-import java.util.Objects;
-import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Phase-3 adjacency relay.

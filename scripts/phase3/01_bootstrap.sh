@@ -29,7 +29,6 @@ EVIDENCE TO CAPTURE
 EOF2
 
 HTTP_BASE="${LEAF1_BASE}"  # In this POC, admin endpoints are available on Leaf1.
-
 _wait_for_http "${HTTP_BASE}/poc/ping" 120 2
 
 _validate_stream() {
@@ -42,48 +41,60 @@ _validate_stream() {
   # Evidence: pretty JSON
   echo "$resp" | python3 -m json.tool
 
-  # Validate required fields.
-  python3 - <<PY
-import json,sys
-stream="$stream"
-expected_ret="$expected_ret".strip().upper()
-expected_subj="$expected_subject".strip()
+  # Validate required fields using env vars + Python heredoc (no shell quoting traps).
+  RESP="$resp" STREAM="$stream" EXPECTED_RET="$expected_ret" EXPECTED_SUBJ="$expected_subject" python3 - <<'PY'
+import json, os, sys
 
-d=json.loads(sys.stdin.read())
+resp = os.environ.get("RESP", "")
+stream = os.environ.get("STREAM", "")
+expected_ret = os.environ.get("EXPECTED_RET", "").strip().upper()
+expected_subj = os.environ.get("EXPECTED_SUBJ", "").strip()
+missing = "<missing>"
 
-ret=str(d.get("retention","")).strip().upper()
-subjects=d.get("subjects",[])
-if isinstance(subjects,str):
-    subjects=[subjects]
-subjects=[str(s) for s in subjects]
+try:
+    d = json.loads(resp)
+except Exception:
+    print(f"FAIL: {stream}: response is not valid JSON")
+    sys.exit(1)
+
+ret = str(d.get("retention", "")).strip().upper()
+subjects = d.get("subjects", [])
+if isinstance(subjects, str):
+    subjects = [subjects]
+subjects = [str(s) for s in subjects]
 
 if ret != expected_ret:
-    print(f"FAIL: {stream}: retention expected {expected_ret}, got {ret or '<missing>'}")
-    raise SystemExit(1)
+    print(f"FAIL: {stream}: retention expected {expected_ret}, got {ret or missing}")
+    sys.exit(1)
+
 if expected_subj not in subjects:
     print(f"FAIL: {stream}: expected subjects to include {expected_subj}, got {subjects}")
-    raise SystemExit(1)
+    sys.exit(1)
+
 print(f"OK: {stream}: retention={ret} subjects include {expected_subj}")
-PY <<<"$resp"
+PY
 }
 
 _ensure_consumer() {
   local stream="$1" durable="$2" filter="$3"
   log_step "Ensure durable consumer: stream=${stream} durable=${durable} filter=${filter}"
 
-  local resp status
+  local resp
   resp="$(_http_json POST "${HTTP_BASE}/poc/consumer/ensure" \
     -H "Content-Type: application/json" \
     -d "{\"stream\":\"${stream}\",\"durable\":\"${durable}\",\"filterSubject\":\"${filter}\"}")"
 
   echo "$resp" | python3 -m json.tool
 
-  status="$(printf "%s" "$resp" | python3 - <<'PY'
-import json,sys
+  # Extract status reliably from JSON in RESP env var (no stdin/heredoc collisions).
+  local status
+  status="$(RESP="$resp" python3 - <<'PY'
+import json, os
+resp = os.environ.get("RESP","")
 try:
-    d=json.load(sys.stdin)
+    d = json.loads(resp)
 except Exception:
-    print(""); raise SystemExit(0)
+    d = {}
 print(d.get("status",""))
 PY
 )"
@@ -92,25 +103,43 @@ PY
     log_fail "consumer ensure failed: durable=${durable} status=${status:-<missing>}"
     exit 1
   fi
-  log_ok "Ensured durable=${durable}"
+
+  log_ok "Ensured consumer durable=${durable}"
 }
 
-# --- Streams ---
+# --- Validate streams (retention + subjects) ---
 _validate_stream "UP_LEAF_STREAM"      "WORKQUEUE" "up.leaf.>"
 _validate_stream "UP_SUBZONE_STREAM"   "WORKQUEUE" "up.subzone.>"
 _validate_stream "UP_ZONE_STREAM"      "WORKQUEUE" "up.zone.>"
+
 _validate_stream "DOWN_CENTRAL_STREAM" "INTEREST"  "down.central.>"
 _validate_stream "DOWN_ZONE_STREAM"    "INTEREST"  "down.zone.>"
 _validate_stream "DOWN_SUBZONE_STREAM" "INTEREST"  "down.subzone.>"
 
-# --- Consumers (minimal adjacency set) ---
-_ensure_consumer "UP_LEAF_STREAM"        "subzone_z1_sz1_subzone01__up__leaf"     "up.leaf.z1.sz1.>"
-_ensure_consumer "UP_SUBZONE_STREAM"     "zone_z1_none_zone01__up__subzone"       "up.subzone.z1.>"
-_ensure_consumer "UP_ZONE_STREAM"        "central_central_none_central01"         "up.zone.>"
+# --- Ensure adjacency consumers (durables) ---
+# Durable naming convention used in this POC:
+#   <tier>_<zone>_<subzone>_<nodeId>__<direction>__<peer>
+#
+# Direction meanings:
+#   __up__X    = consuming upstream traffic from X (WorkQueue streams)
+#   __down__X  = consuming downstream traffic from X (Interest streams)
 
-_ensure_consumer "DOWN_CENTRAL_STREAM"   "zone_z1_none_zone01__down__central"     "down.central.z1.>"
-_ensure_consumer "DOWN_ZONE_STREAM"      "subzone_z1_sz1_subzone01__down__zone"   "down.zone.z1.sz1.>"
-_ensure_consumer "DOWN_SUBZONE_STREAM"   "leaf_z1_sz1_leaf02"                      "down.subzone.z1.sz1.>"
+SUBZONE_UP_LEAF_DURABLE="subzone_z1_sz1_subzone01__up__leaf"
+ZONE_UP_SUBZONE_DURABLE="zone_z1_sz1_zone01__up__subzone"
+CENTRAL_UP_ZONE_DURABLE="central_central_none_central01__up__zone"
+
+ZONE_DOWN_CENTRAL_DURABLE="zone_z1_sz1_zone01__down__central"
+SUBZONE_DOWN_ZONE_DURABLE="subzone_z1_sz1_subzone01__down__zone"
+LEAF2_DOWN_SUBZONE_DURABLE="leaf_z1_sz1_leaf02__down__subzone"
+
+# Filters (must be subsets of the stream subjects)
+_ensure_consumer "UP_LEAF_STREAM"       "$SUBZONE_UP_LEAF_DURABLE"      "up.leaf.z1.sz1.>"
+_ensure_consumer "UP_SUBZONE_STREAM"    "$ZONE_UP_SUBZONE_DURABLE"     "up.subzone.z1.sz1.>"
+_ensure_consumer "UP_ZONE_STREAM"       "$CENTRAL_UP_ZONE_DURABLE"     "up.zone.z1.>"
+
+_ensure_consumer "DOWN_CENTRAL_STREAM"  "$ZONE_DOWN_CENTRAL_DURABLE"   "down.central.z1.>"
+_ensure_consumer "DOWN_ZONE_STREAM"     "$SUBZONE_DOWN_ZONE_DURABLE"   "down.zone.z1.sz1.>"
+_ensure_consumer "DOWN_SUBZONE_STREAM"  "$LEAF2_DOWN_SUBZONE_DURABLE"  "down.subzone.z1.sz1.>"
 
 log_ok "Bootstrap validation complete."
-echo "PASS: adjacency streams validated and required durable consumers ensured."
+echo "PASS: streams and durables validated."
