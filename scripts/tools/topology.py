@@ -201,8 +201,16 @@ def build_nats_authz(cfg: Dict[str, Any]) -> str:
     def q(val: str) -> str:
         return "\"" + val.replace("\"", "\\\"") + "\""
 
+    # This file is meant to be included from inside an `authorization { ... }` block
+    # in the main NATS config, e.g.:
+    #
+    #   authorization {
+    #     include "./authz.conf"
+    #   }
+    #
+    # Therefore, we MUST emit only the inner fields (e.g. `users = [...]`) and NOT
+    # wrap them in an additional `authorization {}` block.
     out: List[str] = []
-    out.append("authorization {")
     out.append("  users = [")
 
     for idx, user in enumerate(users):
@@ -224,7 +232,6 @@ def build_nats_authz(cfg: Dict[str, Any]) -> str:
         out.append("    }" + ("," if idx < len(users) - 1 else ""))
 
     out.append("  ]")
-    out.append("}")
     return "\n".join(out) + "\n"
 
 def main() -> int:
