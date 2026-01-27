@@ -7,6 +7,9 @@ phase3_prereqs
 
 log_title "SMALL Phase3 – Ensure JetStream streams (idempotent) [v2]"
 
+log_step "Waiting for central JetStream to be ready"
+wait_js_or_fail "${NATS_URL_CENTRAL}" 60
+
 # 168h = 604800s = 604800000000000ns
 MAX_AGE_NS=604800000000000
 

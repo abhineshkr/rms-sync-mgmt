@@ -69,6 +69,23 @@ nats_box_nats() {
   docker exec -i "${SVC_NATS_BOX}" nats "$@"
 }
 
+wait_js_or_fail() {
+  # Wait until JetStream management responds on the given server.
+  # Usage: wait_js_or_fail <nats_url> [timeout_seconds]
+  local server="$1"
+  local timeout_s="${2:-60}"
+  local i
+
+  for ((i=1; i<=timeout_s; i++)); do
+    if nats_box_nats --server "$server" stream ls >/dev/null 2>&1; then
+      return 0
+    fi
+    log_info "Waiting for JetStream on ${server}... (${i}/${timeout_s})"
+    sleep 1
+  done
+  log_fail "JetStream did not become ready within ${timeout_s}s on ${server}"
+}
+
 # --- phase3_small: compose override support (additive) ---
 COMPOSE_FILE_SMALL_OVERRIDE="$ROOT_DIR/docker-compose.phase3.small.override.yml"
 

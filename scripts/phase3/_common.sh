@@ -169,35 +169,74 @@ _wait_for_http() {
 # -----------------------------
 _json_get() {
   local key="$1"
-  python3 - <<PY
+  python3 - "$key" <<'PY'
 import json,sys
-obj=json.load(sys.stdin)
-print(obj.get("$key",""))
+
+key=sys.argv[1]
+raw=sys.stdin.read()
+
+if not raw.strip():
+    print("")
+    raise SystemExit(0)
+
+try:
+    obj=json.loads(raw)
+except Exception:
+    # Tolerate non-JSON or truncated output; return empty
+    print("")
+    raise SystemExit(0)
+
+print(obj.get(key, ""))
 PY
 }
 
 _json_get_path() {
   # Usage: echo '{"a":{"b":1}}' | _json_get_path a.b
   local path="$1"
-  python3 - <<PY
+  python3 - "$path" <<'PY'
 import json,sys
-p="$path".split('.')
-obj=json.load(sys.stdin)
+
+path=sys.argv[1]
+raw=sys.stdin.read()
+
+if not raw.strip():
+    print("")
+    raise SystemExit(0)
+
+try:
+    obj=json.loads(raw)
+except Exception:
+    print("")
+    raise SystemExit(0)
+
 cur=obj
-for k in p:
+for k in path.split('.'):
     if isinstance(cur, dict) and k in cur:
         cur=cur[k]
     else:
-        print(""); raise SystemExit(0)
+        print("")
+        raise SystemExit(0)
+
 print(cur if cur is not None else "")
 PY
 }
 
 assert_int_ge() {
   local label="$1" actual="$2" min="$3"
-  python3 - <<PY
+  python3 - "$label" "$actual" "$min" <<'PY'
 import sys
-label="$label"; actual=int("$actual"); minv=int("$min")
+
+label=sys.argv[1]
+actual_s=sys.argv[2]
+min_s=sys.argv[3]
+
+try:
+    actual=int(actual_s)
+except Exception:
+    print(f"FAIL: {label} expected an integer, got '{actual_s}'")
+    sys.exit(1)
+
+minv=int(min_s)
 if actual < minv:
     print(f"FAIL: {label} expected >= {minv}, got {actual}")
     sys.exit(1)
@@ -207,9 +246,20 @@ PY
 
 assert_int_eq() {
   local label="$1" actual="$2" expected="$3"
-  python3 - <<PY
+  python3 - "$label" "$actual" "$expected" <<'PY'
 import sys
-label="$label"; actual=int("$actual"); exp=int("$expected")
+
+label=sys.argv[1]
+actual_s=sys.argv[2]
+exp_s=sys.argv[3]
+
+try:
+    actual=int(actual_s)
+except Exception:
+    print(f"FAIL: {label} expected an integer, got '{actual_s}'")
+    sys.exit(1)
+
+exp=int(exp_s)
 if actual != exp:
     print(f"FAIL: {label} expected == {exp}, got {actual}")
     sys.exit(1)

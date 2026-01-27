@@ -9,7 +9,7 @@ menu() {
 ==============================
  Phase3 SMALL Interactive Menu
 ==============================
- 1) UP central only
+ 1) UP core (Central + JS quorum)
  2) Ensure JetStream streams
  3) UP add zone SNC
  4) UP add subzone SNC/unit1
