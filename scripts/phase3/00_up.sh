@@ -19,6 +19,10 @@ EVIDENCE TO CAPTURE
 - /poc/ping JSON responses
 EOF2
 
+log_step "Preflight: ensure NATS node configs exist (avoid bind-mount directories)"
+"$(dirname "$0")/00_preflight_nats_confs.sh"
+
+
 log_step "Start containers (build + up -d)"
 _dc up -d --build
 

@@ -1,466 +1,1090 @@
+# docker-compose.phase3.yml
+# Phase 3 - Full topology (central + 3 zones + 6 subzones + leaves) + POC apps
+
+x-nats-healthcheck: &nats_healthcheck
+  test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8222/varz >/dev/null 2>&1 || exit 1"]
+  interval: 5s
+  timeout: 3s
+  retries: 30
+  start_period: 20s
+
+x-nats-service: &nats_service
+  image: nats:2.10-alpine
+  command: ["-c", "/etc/nats/nats.conf"]
+  healthcheck: *nats_healthcheck
+  networks: [erp_nats]
+
+x-app-common: &app_common
+  build: .
+  restart: unless-stopped
+  extra_hosts:
+    - "host.docker.internal:host-gateway"
+  networks: [erp_nats]
+
+x-db-env: &db_env
+  # You said DB is on 192.168.1.13:5436, so default to that
+  DB_HOST: ${DB_HOST:-192.168.1.13}
+  DB_PORT: ${DB_PORT:-5436}
+  DB_NAME: ${DB_NAME:-dockyard_dev}
+  DB_USER: ${DB_USER:-postgres}
+  DB_PASSWORD: ${DB_PASSWORD:-postgres}
+
 services:
-  # --- JetStream multi-node topology (Phase 3 POC) ---
-  nats-central:
-    image: nats:2.10-alpine
-    command: ["-c", "/etc/nats/nats.conf"]
+  # --- JetStream multi-node topology (Full Topology / Phase 3) ---
+
+  # Central
+  nats_nhq_central:
+    <<: *nats_service
+    container_name: nats_nhq_central
+    networks:
+      erp_nats:
+        aliases:
+          - nats-nhq-central
     volumes:
-      - ./nats/central.conf:/etc/nats/nats.conf:ro
-      - ./nats/generated/authz_${SYNC_CENTRAL_ID}.conf:/etc/nats/authz.conf:ro
-      - nats-central-data:/data
+      - type: bind
+        source: ./nats/central.conf
+        target: /etc/nats/nats.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./nats/generated/authz_${SYNC_CENTRAL_ID:-nhq}.conf
+        target: /etc/nats/authz.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      # Workaround for configs using: include "/etc/nats/authz.conf"
+      - type: bind
+        source: ./nats/generated/authz_${SYNC_CENTRAL_ID:-nhq}.conf
+        target: /etc/nats/etc/nats/authz.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - nats_nhq_central_data:/data
     ports:
       - "4222:4222"
       - "8222:8222"
-    healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8222/varz >/dev/null 2>&1 || exit 1"]
-      interval: 5s
-      timeout: 3s
-      retries: 30
-      start_period: 20s
-    networks:
-      - erp_nats
 
-  nats-zone:
-    image: nats:2.10-alpine
-    command: ["-c", "/etc/nats/nats.conf"]
+  # Zones (snc, enc, wnc)
+  nats_nhq_zone_snc:
+    <<: *nats_service
+    container_name: nats_nhq_zone_snc
+    networks:
+      erp_nats:
+        aliases:
+          - nats-nhq-zone-snc
     volumes:
-      - ./nats/zone.conf:/etc/nats/nats.conf:ro
-      - ./nats/generated/authz_${SYNC_CENTRAL_ID}.conf:/etc/nats/authz.conf:ro
-      - nats-zone-data:/data
+      - type: bind
+        source: ./nats/zone_snc.conf
+        target: /etc/nats/nats.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./nats/generated/authz_${SYNC_CENTRAL_ID:-nhq}.conf
+        target: /etc/nats/authz.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./nats/generated/authz_${SYNC_CENTRAL_ID:-nhq}.conf
+        target: /etc/nats/etc/nats/authz.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - nats_nhq_zone_snc_data:/data
     ports:
       - "4223:4222"
       - "8223:8222"
-    healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8222/varz >/dev/null 2>&1 || exit 1"]
-      interval: 5s
-      timeout: 3s
-      retries: 30
-      start_period: 20s
-    networks:
-      - erp_nats
 
-  nats-subzone:
-    image: nats:2.10-alpine
-    command: ["-c", "/etc/nats/nats.conf"]
+  nats_nhq_zone_enc:
+    <<: *nats_service
+    container_name: nats_nhq_zone_enc
+    networks:
+      erp_nats:
+        aliases:
+          - nats-nhq-zone-enc
     volumes:
-      - ./nats/subzone.conf:/etc/nats/nats.conf:ro
-      - ./nats/generated/authz_${SYNC_CENTRAL_ID}.conf:/etc/nats/authz.conf:ro
-      - nats-subzone-data:/data
+      - type: bind
+        source: ./nats/zone_enc.conf
+        target: /etc/nats/nats.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./nats/generated/authz_${SYNC_CENTRAL_ID:-nhq}.conf
+        target: /etc/nats/authz.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./nats/generated/authz_${SYNC_CENTRAL_ID:-nhq}.conf
+        target: /etc/nats/etc/nats/authz.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - nats_nhq_zone_enc_data:/data
     ports:
-      - "4224:4222"
-      - "8224:8222"
-    healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8222/varz >/dev/null 2>&1 || exit 1"]
-      interval: 5s
-      timeout: 3s
-      retries: 30
-      start_period: 20s
-    networks:
-      - erp_nats
+      - "4225:4222"
+      - "8225:8222"
 
-  nats-leaf1:
-    image: nats:2.10-alpine
-    command: ["-c", "/etc/nats/nats.conf"]
+  nats_nhq_zone_wnc:
+    <<: *nats_service
+    container_name: nats_nhq_zone_wnc
+    networks:
+      erp_nats:
+        aliases:
+          - nats-nhq-zone-wnc
     volumes:
-      - ./nats/leaf1.conf:/etc/nats/nats.conf:ro
-      - ./nats/generated/authz_${SYNC_CENTRAL_ID}.conf:/etc/nats/authz.conf:ro
-      - nats-leaf1-data:/data
-    healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8222/varz >/dev/null 2>&1 || exit 1"]
-      interval: 5s
-      timeout: 3s
-      retries: 30
-      start_period: 20s
-    networks:
-      - erp_nats
+      - type: bind
+        source: ./nats/zone_wnc.conf
+        target: /etc/nats/nats.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./nats/generated/authz_${SYNC_CENTRAL_ID:-nhq}.conf
+        target: /etc/nats/authz.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./nats/generated/authz_${SYNC_CENTRAL_ID:-nhq}.conf
+        target: /etc/nats/etc/nats/authz.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - nats_nhq_zone_wnc_data:/data
+    ports:
+      - "4227:4222"
+      - "8227:8222"
 
-  nats-leaf2:
-    image: nats:2.10-alpine
-    command: ["-c", "/etc/nats/nats.conf"]
+  # Subzones per zone (unit1, unit2)
+  nats_nhq_subzone_snc_unit1:
+    <<: *nats_service
+    container_name: nats_nhq_subzone_snc_unit1
+    networks:
+      erp_nats:
+        aliases:
+          - nats-nhq-subzone-snc-unit1
     volumes:
-      - ./nats/leaf2.conf:/etc/nats/nats.conf:ro
-      - ./nats/generated/authz_${SYNC_CENTRAL_ID}.conf:/etc/nats/authz.conf:ro
-      - nats-leaf2-data:/data
-    healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8222/varz >/dev/null 2>&1 || exit 1"]
-      interval: 5s
-      timeout: 3s
-      retries: 30
-      start_period: 20s
-    networks:
-      - erp_nats
+      - type: bind
+        source: ./nats/subzone_snc_unit1.conf
+        target: /etc/nats/nats.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./nats/generated/authz_${SYNC_CENTRAL_ID:-nhq}.conf
+        target: /etc/nats/authz.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./nats/generated/authz_${SYNC_CENTRAL_ID:-nhq}.conf
+        target: /etc/nats/etc/nats/authz.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - nats_nhq_subzone_snc_unit1_data:/data
+    ports:
+      - "4231:4222"
+      - "8231:8222"
 
-  nats-leaf3:
-    image: nats:2.10-alpine
-    command: ["-c", "/etc/nats/nats.conf"]
+  nats_nhq_subzone_snc_unit2:
+    <<: *nats_service
+    container_name: nats_nhq_subzone_snc_unit2
+    networks:
+      erp_nats:
+        aliases:
+          - nats-nhq-subzone-snc-unit2
     volumes:
-      - ./nats/leaf3.conf:/etc/nats/nats.conf:ro
-      - ./nats/generated/authz_${SYNC_CENTRAL_ID}.conf:/etc/nats/authz.conf:ro
-      - nats-leaf3-data:/data
-    healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8222/varz >/dev/null 2>&1 || exit 1"]
-      interval: 5s
-      timeout: 3s
-      retries: 30
-      start_period: 20s
-    networks:
-      - erp_nats
+      - type: bind
+        source: ./nats/subzone_snc_unit2.conf
+        target: /etc/nats/nats.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./nats/generated/authz_${SYNC_CENTRAL_ID:-nhq}.conf
+        target: /etc/nats/authz.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./nats/generated/authz_${SYNC_CENTRAL_ID:-nhq}.conf
+        target: /etc/nats/etc/nats/authz.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - nats_nhq_subzone_snc_unit2_data:/data
+    ports:
+      - "4232:4222"
+      - "8232:8222"
 
-  nats-leaf4:
-    image: nats:2.10-alpine
-    command: ["-c", "/etc/nats/nats.conf"]
+  nats_nhq_subzone_enc_unit1:
+    <<: *nats_service
+    container_name: nats_nhq_subzone_enc_unit1
+    networks:
+      erp_nats:
+        aliases:
+          - nats-nhq-subzone-enc-unit1
     volumes:
-      - ./nats/leaf4.conf:/etc/nats/nats.conf:ro
-      - ./nats/generated/authz_${SYNC_CENTRAL_ID}.conf:/etc/nats/authz.conf:ro
-      - nats-leaf4-data:/data
-    healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8222/varz >/dev/null 2>&1 || exit 1"]
-      interval: 5s
-      timeout: 3s
-      retries: 30
-      start_period: 20s
-    networks:
-      - erp_nats
+      - type: bind
+        source: ./nats/subzone_enc_unit1.conf
+        target: /etc/nats/nats.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./nats/generated/authz_${SYNC_CENTRAL_ID:-nhq}.conf
+        target: /etc/nats/authz.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./nats/generated/authz_${SYNC_CENTRAL_ID:-nhq}.conf
+        target: /etc/nats/etc/nats/authz.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - nats_nhq_subzone_enc_unit1_data:/data
+    ports:
+      - "4233:4222"
+      - "8233:8222"
 
-  nats-leaf5:
-    image: nats:2.10-alpine
-    command: ["-c", "/etc/nats/nats.conf"]
+  nats_nhq_subzone_enc_unit2:
+    <<: *nats_service
+    container_name: nats_nhq_subzone_enc_unit2
+    networks:
+      erp_nats:
+        aliases:
+          - nats-nhq-subzone-enc-unit2
     volumes:
-      - ./nats/leaf5.conf:/etc/nats/nats.conf:ro
-      - ./nats/generated/authz_${SYNC_CENTRAL_ID}.conf:/etc/nats/authz.conf:ro
-      - nats-leaf5-data:/data
-    healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8222/varz >/dev/null 2>&1 || exit 1"]
-      interval: 5s
-      timeout: 3s
-      retries: 30
-      start_period: 20s
-    networks:
-      - erp_nats
+      - type: bind
+        source: ./nats/subzone_enc_unit2.conf
+        target: /etc/nats/nats.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./nats/generated/authz_${SYNC_CENTRAL_ID:-nhq}.conf
+        target: /etc/nats/authz.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./nats/generated/authz_${SYNC_CENTRAL_ID:-nhq}.conf
+        target: /etc/nats/etc/nats/authz.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - nats_nhq_subzone_enc_unit2_data:/data
+    ports:
+      - "4234:4222"
+      - "8234:8222"
 
-  # --- POC applications (one per node) ---
-  sync-central:
-    build: .
-    restart: unless-stopped
+  nats_nhq_subzone_wnc_unit1:
+    <<: *nats_service
+    container_name: nats_nhq_subzone_wnc_unit1
+    networks:
+      erp_nats:
+        aliases:
+          - nats-nhq-subzone-wnc-unit1
+    volumes:
+      - type: bind
+        source: ./nats/subzone_wnc_unit1.conf
+        target: /etc/nats/nats.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./nats/generated/authz_${SYNC_CENTRAL_ID:-nhq}.conf
+        target: /etc/nats/authz.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./nats/generated/authz_${SYNC_CENTRAL_ID:-nhq}.conf
+        target: /etc/nats/etc/nats/authz.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - nats_nhq_subzone_wnc_unit1_data:/data
+    ports:
+      - "4235:4222"
+      - "8235:8222"
+
+  nats_nhq_subzone_wnc_unit2:
+    <<: *nats_service
+    container_name: nats_nhq_subzone_wnc_unit2
+    networks:
+      erp_nats:
+        aliases:
+          - nats-nhq-subzone-wnc-unit2
+    volumes:
+      - type: bind
+        source: ./nats/subzone_wnc_unit2.conf
+        target: /etc/nats/nats.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./nats/generated/authz_${SYNC_CENTRAL_ID:-nhq}.conf
+        target: /etc/nats/authz.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./nats/generated/authz_${SYNC_CENTRAL_ID:-nhq}.conf
+        target: /etc/nats/etc/nats/authz.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - nats_nhq_subzone_wnc_unit2_data:/data
+    ports:
+      - "4236:4222"
+      - "8236:8222"
+
+  # Leaves (NATS leaf nodes)
+  # Central-attached leaves (zone=nhq, subzone=none)
+  nats_nhq_leaf_central_nhq_none_desk1:
+    <<: *nats_service
+    container_name: nats_nhq_leaf_central_nhq_none_desk1
+    networks:
+      erp_nats:
+        aliases:
+          - nats-nhq-leaf-central-nhq-none-desk1
+    volumes:
+      - type: bind
+        source: ./nats/leaf_central_desk1.conf
+        target: /etc/nats/nats.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./nats/generated/authz_${SYNC_CENTRAL_ID:-nhq}.conf
+        target: /etc/nats/authz.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./nats/generated/authz_${SYNC_CENTRAL_ID:-nhq}.conf
+        target: /etc/nats/etc/nats/authz.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - nats_nhq_leaf_central_nhq_none_desk1_data:/data
+
+  nats_nhq_leaf_central_nhq_none_desk2:
+    <<: *nats_service
+    container_name: nats_nhq_leaf_central_nhq_none_desk2
+    networks:
+      erp_nats:
+        aliases:
+          - nats-nhq-leaf-central-nhq-none-desk2
+    volumes:
+      - type: bind
+        source: ./nats/leaf_central_desk2.conf
+        target: /etc/nats/nats.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./nats/generated/authz_${SYNC_CENTRAL_ID:-nhq}.conf
+        target: /etc/nats/authz.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./nats/generated/authz_${SYNC_CENTRAL_ID:-nhq}.conf
+        target: /etc/nats/etc/nats/authz.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - nats_nhq_leaf_central_nhq_none_desk2_data:/data
+
+  # Zone-attached leaves (no subzone)
+  nats_nhq_leaf_zone_snc_none_desk1:
+    <<: *nats_service
+    container_name: nats_nhq_leaf_zone_snc_none_desk1
+    networks:
+      erp_nats:
+        aliases:
+          - nats-nhq-leaf-zone-snc-none-desk1
+    volumes:
+      - type: bind
+        source: ./nats/leaf_zone_snc_desk1.conf
+        target: /etc/nats/nats.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./nats/generated/authz_${SYNC_CENTRAL_ID:-nhq}.conf
+        target: /etc/nats/authz.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./nats/generated/authz_${SYNC_CENTRAL_ID:-nhq}.conf
+        target: /etc/nats/etc/nats/authz.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - nats_nhq_leaf_zone_snc_none_desk1_data:/data
+
+  nats_nhq_leaf_zone_snc_none_desk2:
+    <<: *nats_service
+    container_name: nats_nhq_leaf_zone_snc_none_desk2
+    networks:
+      erp_nats:
+        aliases:
+          - nats-nhq-leaf-zone-snc-none-desk2
+    volumes:
+      - type: bind
+        source: ./nats/leaf_zone_snc_desk2.conf
+        target: /etc/nats/nats.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./nats/generated/authz_${SYNC_CENTRAL_ID:-nhq}.conf
+        target: /etc/nats/authz.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./nats/generated/authz_${SYNC_CENTRAL_ID:-nhq}.conf
+        target: /etc/nats/etc/nats/authz.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - nats_nhq_leaf_zone_snc_none_desk2_data:/data
+
+  nats_nhq_leaf_zone_enc_none_desk1:
+    <<: *nats_service
+    container_name: nats_nhq_leaf_zone_enc_none_desk1
+    networks:
+      erp_nats:
+        aliases:
+          - nats-nhq-leaf-zone-enc-none-desk1
+    volumes:
+      - type: bind
+        source: ./nats/leaf_zone_enc_desk1.conf
+        target: /etc/nats/nats.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./nats/generated/authz_${SYNC_CENTRAL_ID:-nhq}.conf
+        target: /etc/nats/authz.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./nats/generated/authz_${SYNC_CENTRAL_ID:-nhq}.conf
+        target: /etc/nats/etc/nats/authz.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - nats_nhq_leaf_zone_enc_none_desk1_data:/data
+
+  nats_nhq_leaf_zone_enc_none_desk2:
+    <<: *nats_service
+    container_name: nats_nhq_leaf_zone_enc_none_desk2
+    networks:
+      erp_nats:
+        aliases:
+          - nats-nhq-leaf-zone-enc-none-desk2
+    volumes:
+      - type: bind
+        source: ./nats/leaf_zone_enc_desk2.conf
+        target: /etc/nats/nats.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./nats/generated/authz_${SYNC_CENTRAL_ID:-nhq}.conf
+        target: /etc/nats/authz.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./nats/generated/authz_${SYNC_CENTRAL_ID:-nhq}.conf
+        target: /etc/nats/etc/nats/authz.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - nats_nhq_leaf_zone_enc_none_desk2_data:/data
+
+  nats_nhq_leaf_zone_wnc_none_desk1:
+    <<: *nats_service
+    container_name: nats_nhq_leaf_zone_wnc_none_desk1
+    networks:
+      erp_nats:
+        aliases:
+          - nats-nhq-leaf-zone-wnc-none-desk1
+    volumes:
+      - type: bind
+        source: ./nats/leaf_zone_wnc_desk1.conf
+        target: /etc/nats/nats.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./nats/generated/authz_${SYNC_CENTRAL_ID:-nhq}.conf
+        target: /etc/nats/authz.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./nats/generated/authz_${SYNC_CENTRAL_ID:-nhq}.conf
+        target: /etc/nats/etc/nats/authz.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - nats_nhq_leaf_zone_wnc_none_desk1_data:/data
+
+  nats_nhq_leaf_zone_wnc_none_desk2:
+    <<: *nats_service
+    container_name: nats_nhq_leaf_zone_wnc_none_desk2
+    networks:
+      erp_nats:
+        aliases:
+          - nats-nhq-leaf-zone-wnc-none-desk2
+    volumes:
+      - type: bind
+        source: ./nats/leaf_zone_wnc_desk2.conf
+        target: /etc/nats/nats.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./nats/generated/authz_${SYNC_CENTRAL_ID:-nhq}.conf
+        target: /etc/nats/authz.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./nats/generated/authz_${SYNC_CENTRAL_ID:-nhq}.conf
+        target: /etc/nats/etc/nats/authz.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - nats_nhq_leaf_zone_wnc_none_desk2_data:/data
+
+  # Subzone-attached leaves (snc/enc/wnc x unit1/unit2 x desk1/desk2)
+  nats_nhq_leaf_subzone_snc_unit1_desk1:
+    <<: *nats_service
+    container_name: nats_nhq_leaf_subzone_snc_unit1_desk1
+    networks:
+      erp_nats:
+        aliases:
+          - nats-nhq-leaf-subzone-snc-unit1-desk1
+    volumes:
+      - type: bind
+        source: ./nats/leaf_subzone_snc_unit1_desk1.conf
+        target: /etc/nats/nats.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./nats/generated/authz_${SYNC_CENTRAL_ID:-nhq}.conf
+        target: /etc/nats/authz.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./nats/generated/authz_${SYNC_CENTRAL_ID:-nhq}.conf
+        target: /etc/nats/etc/nats/authz.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - nats_nhq_leaf_subzone_snc_unit1_desk1_data:/data
+
+  nats_nhq_leaf_subzone_snc_unit1_desk2:
+    <<: *nats_service
+    container_name: nats_nhq_leaf_subzone_snc_unit1_desk2
+    networks:
+      erp_nats:
+        aliases:
+          - nats-nhq-leaf-subzone-snc-unit1-desk2
+    volumes:
+      - type: bind
+        source: ./nats/leaf_subzone_snc_unit1_desk2.conf
+        target: /etc/nats/nats.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./nats/generated/authz_${SYNC_CENTRAL_ID:-nhq}.conf
+        target: /etc/nats/authz.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./nats/generated/authz_${SYNC_CENTRAL_ID:-nhq}.conf
+        target: /etc/nats/etc/nats/authz.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - nats_nhq_leaf_subzone_snc_unit1_desk2_data:/data
+
+  nats_nhq_leaf_subzone_snc_unit2_desk1:
+    <<: *nats_service
+    container_name: nats_nhq_leaf_subzone_snc_unit2_desk1
+    networks:
+      erp_nats:
+        aliases:
+          - nats-nhq-leaf-subzone-snc-unit2-desk1
+    volumes:
+      - type: bind
+        source: ./nats/leaf_subzone_snc_unit2_desk1.conf
+        target: /etc/nats/nats.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./nats/generated/authz_${SYNC_CENTRAL_ID:-nhq}.conf
+        target: /etc/nats/authz.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./nats/generated/authz_${SYNC_CENTRAL_ID:-nhq}.conf
+        target: /etc/nats/etc/nats/authz.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - nats_nhq_leaf_subzone_snc_unit2_desk1_data:/data
+
+  nats_nhq_leaf_subzone_snc_unit2_desk2:
+    <<: *nats_service
+    container_name: nats_nhq_leaf_subzone_snc_unit2_desk2
+    networks:
+      erp_nats:
+        aliases:
+          - nats-nhq-leaf-subzone-snc-unit2-desk2
+    volumes:
+      - type: bind
+        source: ./nats/leaf_subzone_snc_unit2_desk2.conf
+        target: /etc/nats/nats.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./nats/generated/authz_${SYNC_CENTRAL_ID:-nhq}.conf
+        target: /etc/nats/authz.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./nats/generated/authz_${SYNC_CENTRAL_ID:-nhq}.conf
+        target: /etc/nats/etc/nats/authz.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - nats_nhq_leaf_subzone_snc_unit2_desk2_data:/data
+
+  nats_nhq_leaf_subzone_enc_unit1_desk1:
+    <<: *nats_service
+    container_name: nats_nhq_leaf_subzone_enc_unit1_desk1
+    networks:
+      erp_nats:
+        aliases:
+          - nats-nhq-leaf-subzone-enc-unit1-desk1
+    volumes:
+      - type: bind
+        source: ./nats/leaf_subzone_enc_unit1_desk1.conf
+        target: /etc/nats/nats.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./nats/generated/authz_${SYNC_CENTRAL_ID:-nhq}.conf
+        target: /etc/nats/authz.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./nats/generated/authz_${SYNC_CENTRAL_ID:-nhq}.conf
+        target: /etc/nats/etc/nats/authz.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - nats_nhq_leaf_subzone_enc_unit1_desk1_data:/data
+
+  nats_nhq_leaf_subzone_enc_unit1_desk2:
+    <<: *nats_service
+    container_name: nats_nhq_leaf_subzone_enc_unit1_desk2
+    networks:
+      erp_nats:
+        aliases:
+          - nats-nhq-leaf-subzone-enc-unit1-desk2
+    volumes:
+      - type: bind
+        source: ./nats/leaf_subzone_enc_unit1_desk2.conf
+        target: /etc/nats/nats.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./nats/generated/authz_${SYNC_CENTRAL_ID:-nhq}.conf
+        target: /etc/nats/authz.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./nats/generated/authz_${SYNC_CENTRAL_ID:-nhq}.conf
+        target: /etc/nats/etc/nats/authz.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - nats_nhq_leaf_subzone_enc_unit1_desk2_data:/data
+
+  nats_nhq_leaf_subzone_enc_unit2_desk1:
+    <<: *nats_service
+    container_name: nats_nhq_leaf_subzone_enc_unit2_desk1
+    networks:
+      erp_nats:
+        aliases:
+          - nats-nhq-leaf-subzone-enc-unit2-desk1
+    volumes:
+      - type: bind
+        source: ./nats/leaf_subzone_enc_unit2_desk1.conf
+        target: /etc/nats/nats.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./nats/generated/authz_${SYNC_CENTRAL_ID:-nhq}.conf
+        target: /etc/nats/authz.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./nats/generated/authz_${SYNC_CENTRAL_ID:-nhq}.conf
+        target: /etc/nats/etc/nats/authz.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - nats_nhq_leaf_subzone_enc_unit2_desk1_data:/data
+
+  nats_nhq_leaf_subzone_enc_unit2_desk2:
+    <<: *nats_service
+    container_name: nats_nhq_leaf_subzone_enc_unit2_desk2
+    networks:
+      erp_nats:
+        aliases:
+          - nats-nhq-leaf-subzone-enc-unit2-desk2
+    volumes:
+      - type: bind
+        source: ./nats/leaf_subzone_enc_unit2_desk2.conf
+        target: /etc/nats/nats.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./nats/generated/authz_${SYNC_CENTRAL_ID:-nhq}.conf
+        target: /etc/nats/authz.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./nats/generated/authz_${SYNC_CENTRAL_ID:-nhq}.conf
+        target: /etc/nats/etc/nats/authz.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - nats_nhq_leaf_subzone_enc_unit2_desk2_data:/data
+
+  nats_nhq_leaf_subzone_wnc_unit1_desk1:
+    <<: *nats_service
+    container_name: nats_nhq_leaf_subzone_wnc_unit1_desk1
+    networks:
+      erp_nats:
+        aliases:
+          - nats-nhq-leaf-subzone-wnc-unit1-desk1
+    volumes:
+      - type: bind
+        source: ./nats/leaf_subzone_wnc_unit1_desk1.conf
+        target: /etc/nats/nats.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./nats/generated/authz_${SYNC_CENTRAL_ID:-nhq}.conf
+        target: /etc/nats/authz.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./nats/generated/authz_${SYNC_CENTRAL_ID:-nhq}.conf
+        target: /etc/nats/etc/nats/authz.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - nats_nhq_leaf_subzone_wnc_unit1_desk1_data:/data
+
+  nats_nhq_leaf_subzone_wnc_unit1_desk2:
+    <<: *nats_service
+    container_name: nats_nhq_leaf_subzone_wnc_unit1_desk2
+    networks:
+      erp_nats:
+        aliases:
+          - nats-nhq-leaf-subzone-wnc-unit1-desk2
+    volumes:
+      - type: bind
+        source: ./nats/leaf_subzone_wnc_unit1_desk2.conf
+        target: /etc/nats/nats.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./nats/generated/authz_${SYNC_CENTRAL_ID:-nhq}.conf
+        target: /etc/nats/authz.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./nats/generated/authz_${SYNC_CENTRAL_ID:-nhq}.conf
+        target: /etc/nats/etc/nats/authz.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - nats_nhq_leaf_subzone_wnc_unit1_desk2_data:/data
+
+  nats_nhq_leaf_subzone_wnc_unit2_desk1:
+    <<: *nats_service
+    container_name: nats_nhq_leaf_subzone_wnc_unit2_desk1
+    networks:
+      erp_nats:
+        aliases:
+          - nats-nhq-leaf-subzone-wnc-unit2-desk1
+    volumes:
+      - type: bind
+        source: ./nats/leaf_subzone_wnc_unit2_desk1.conf
+        target: /etc/nats/nats.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./nats/generated/authz_${SYNC_CENTRAL_ID:-nhq}.conf
+        target: /etc/nats/authz.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./nats/generated/authz_${SYNC_CENTRAL_ID:-nhq}.conf
+        target: /etc/nats/etc/nats/authz.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - nats_nhq_leaf_subzone_wnc_unit2_desk1_data:/data
+
+  nats_nhq_leaf_subzone_wnc_unit2_desk2:
+    <<: *nats_service
+    container_name: nats_nhq_leaf_subzone_wnc_unit2_desk2
+    networks:
+      erp_nats:
+        aliases:
+          - nats-nhq-leaf-subzone-wnc-unit2-desk2
+    volumes:
+      - type: bind
+        source: ./nats/leaf_subzone_wnc_unit2_desk2.conf
+        target: /etc/nats/nats.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./nats/generated/authz_${SYNC_CENTRAL_ID:-nhq}.conf
+        target: /etc/nats/authz.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./nats/generated/authz_${SYNC_CENTRAL_ID:-nhq}.conf
+        target: /etc/nats/etc/nats/authz.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - nats_nhq_leaf_subzone_wnc_unit2_desk2_data:/data
+
+  # --- POC applications (Option A: keep relays + 1 leaf app only) ---
+
+  sync_relay_nhq_central:
+    <<: *app_common
+    container_name: sync_relay_nhq_central
     depends_on:
-      nats-central:
+      nats_nhq_central:
         condition: service_healthy
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     environment:
-      DB_HOST: 192.168.3.99
-      DB_PORT: 5436
-      DB_NAME: dockyard_dev
-      DB_USER: postgres
-      DB_PASSWORD: postgres
-      NATS_URL: nats://${SYNC_NATS_USERNAME}:${SYNC_NATS_PASSWORD}@nats-central:4222
+      <<: *db_env
+      NATS_URL: nats://${SYNC_NATS_USERNAME:-sync}:${SYNC_NATS_PASSWORD:-sync}@nats-nhq-central:4222
       SERVER_PORT: 8080
       SYNC_TIER: central
-      SYNC_ZONE: central
+      SYNC_ZONE: nhq
       SYNC_SUBZONE: none
       SYNC_NODE_ID: central01
-      SYNC_BOOTSTRAP_ENABLED: true
-      SYNC_OUTBOX_ENABLED: false
-      SYNC_RELAY_ENABLED: false
-
-      # Central consumes upstream from its direct children (zones / direct leaves)
-      SYNC_CONSUMER_ENABLED: true
+      SYNC_BOOTSTRAP_ENABLED: "false"
+      SYNC_OUTBOX_ENABLED: "false"
+      SYNC_RELAY_ENABLED: "false"
+      SYNC_CONSUMER_ENABLED: "true"
       SYNC_CONSUMER_STREAM: UP_ZONE_STREAM
-      SYNC_CONSUMER_FILTER: up.zone.>
-      SYNC_POC_ADMIN_ENABLED: true
-      # Flyway runs ONLY on central
+      SYNC_CONSUMER_FILTER: up.zone.nhq.>
+      SYNC_POC_ADMIN_ENABLED: "true"
       SPRING_FLYWAY_ENABLED: "true"
     ports:
       - "18080:8080"
-    networks:
-      - erp_nats
 
-  sync-zone:
-    build: .
-    restart: unless-stopped
+  sync_relay_nhq_zone_snc:
+    <<: *app_common
+    container_name: sync_relay_nhq_zone_snc
     depends_on:
-      nats-zone:
+      nats_nhq_zone_snc:
         condition: service_healthy
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     environment:
-      DB_HOST: 192.168.3.99
-      DB_PORT: 5436
-      DB_NAME: dockyard_dev
-      DB_USER: postgres
-      DB_PASSWORD: postgres
-      NATS_URL: nats://${SYNC_NATS_USERNAME}:${SYNC_NATS_PASSWORD}@nats-zone:4222
+      <<: *db_env
+      NATS_URL: nats://${SYNC_NATS_USERNAME:-sync}:${SYNC_NATS_PASSWORD:-sync}@nats-nhq-zone-snc:4222
       SERVER_PORT: 8080
       SYNC_TIER: zone
-      SYNC_ZONE: z1
+      SYNC_ZONE: snc
       SYNC_SUBZONE: none
-      SYNC_NODE_ID: zone01
-      SYNC_BOOTSTRAP_ENABLED: false
-      SYNC_OUTBOX_ENABLED: false
-      SYNC_CONSUMER_ENABLED: false
-
-      # Zone relays:
-      # - upstream from subzone (or direct leaf if no subzones) -> UP_ZONE_STREAM
-      # - downstream from central -> DOWN_ZONE_STREAM
-      SYNC_RELAY_ENABLED: true
-      SYNC_ZONE_HAS_SUBZONES: true
-      SYNC_POC_ADMIN_ENABLED: true
+      SYNC_NODE_ID: zone_snc_01
+      SYNC_BOOTSTRAP_ENABLED: "false"
+      SYNC_OUTBOX_ENABLED: "false"
+      SYNC_CONSUMER_ENABLED: "false"
+      SYNC_RELAY_ENABLED: "true"
+      SYNC_ZONE_HAS_SUBZONES: "true"
+      SYNC_POC_ADMIN_ENABLED: "true"
       SPRING_FLYWAY_ENABLED: "false"
     ports:
       - "18082:8080"
-    networks:
-      - erp_nats
 
-  sync-subzone:
-    build: .
-    restart: unless-stopped
+  sync_relay_nhq_subzone_snc_unit1:
+    <<: *app_common
+    container_name: sync_relay_nhq_subzone_snc_unit1
     depends_on:
-      nats-subzone:
+      nats_nhq_subzone_snc_unit1:
         condition: service_healthy
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     environment:
-      DB_HOST: 192.168.3.99
-      DB_PORT: 5436
-      DB_NAME: dockyard_dev
-      DB_USER: postgres
-      DB_PASSWORD: postgres
-      NATS_URL: nats://${SYNC_NATS_USERNAME}:${SYNC_NATS_PASSWORD}@nats-subzone:4222
+      <<: *db_env
+      NATS_URL: nats://${SYNC_NATS_USERNAME:-sync}:${SYNC_NATS_PASSWORD:-sync}@nats-nhq-subzone-snc-unit1:4222
       SERVER_PORT: 8080
       SYNC_TIER: subzone
-      SYNC_ZONE: z1
-      SYNC_SUBZONE: sz1
-      SYNC_NODE_ID: subzone01
-      SYNC_BOOTSTRAP_ENABLED: false
-      SYNC_OUTBOX_ENABLED: false
-      SYNC_CONSUMER_ENABLED: false
-
-      # Subzone relays:
-      # - upstream from leaf -> UP_SUBZONE_STREAM
-      # - downstream from zone -> DOWN_SUBZONE_STREAM
-      SYNC_RELAY_ENABLED: true
-      SYNC_POC_ADMIN_ENABLED: true
+      SYNC_ZONE: snc
+      SYNC_SUBZONE: unit1
+      SYNC_NODE_ID: subzone_snc_unit1_01
+      SYNC_BOOTSTRAP_ENABLED: "false"
+      SYNC_OUTBOX_ENABLED: "false"
+      SYNC_CONSUMER_ENABLED: "false"
+      SYNC_RELAY_ENABLED: "true"
+      SYNC_POC_ADMIN_ENABLED: "true"
       SPRING_FLYWAY_ENABLED: "false"
     ports:
       - "18083:8080"
-    networks:
-      - erp_nats
 
-  # Leaf 1 produces leaf events via outbox; leaf 2-5 consume central events.
-  sync-leaf1:
-    build: .
-    restart: unless-stopped
+  sync_leaf_nhq_subzone_snc_unit1_desk1:
+    <<: *app_common
+    container_name: sync_leaf_nhq_subzone_snc_unit1_desk1
     depends_on:
-      nats-leaf1:
+      nats_nhq_leaf_subzone_snc_unit1_desk1:
         condition: service_healthy
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     environment:
-      DB_HOST: 192.168.3.99
-      DB_PORT: 5436
-      DB_NAME: dockyard_dev
-      DB_USER: postgres
-      DB_PASSWORD: postgres
-      NATS_URL: nats://${SYNC_NATS_USERNAME}:${SYNC_NATS_PASSWORD}@nats-leaf1:4222
+      <<: *db_env
+      NATS_URL: nats://${SYNC_NATS_USERNAME:-sync}:${SYNC_NATS_PASSWORD:-sync}@nats-nhq-leaf-subzone-snc-unit1-desk1:4222
       SERVER_PORT: 8080
       SYNC_TIER: leaf
-      SYNC_ZONE: z1
-      SYNC_SUBZONE: sz1
-      SYNC_NODE_ID: leaf01
-      SYNC_BOOTSTRAP_ENABLED: false
-      SYNC_OUTBOX_ENABLED: true
+      SYNC_ZONE: snc
+      SYNC_SUBZONE: unit1
+      SYNC_NODE_ID: desk1
+      SYNC_BOOTSTRAP_ENABLED: "false"
+      SYNC_OUTBOX_ENABLED: "true"
       SYNC_OUTBOX_POLL_INTERVAL: 30s
-      SYNC_CONSUMER_ENABLED: false
-      SYNC_RELAY_ENABLED: false
-      SYNC_POC_ADMIN_ENABLED: true
+      SYNC_CONSUMER_ENABLED: "false"
+      SYNC_RELAY_ENABLED: "false"
+      SYNC_POC_ADMIN_ENABLED: "true"
       SPRING_FLYWAY_ENABLED: "false"
     ports:
       - "18081:8080"
-    networks:
-      - erp_nats
 
-  sync-leaf2:
-    build: .
-    restart: unless-stopped
-    depends_on:
-      nats-leaf2:
-        condition: service_healthy
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    environment:
-      DB_HOST: 192.168.3.99
-      DB_PORT: 5436
-      DB_NAME: dockyard_dev
-      DB_USER: postgres
-      DB_PASSWORD: postgres
-      NATS_URL: nats://${SYNC_NATS_USERNAME}:${SYNC_NATS_PASSWORD}@nats-leaf2:4222
-      SERVER_PORT: 8080
-      SYNC_TIER: leaf
-      SYNC_ZONE: z1
-      SYNC_SUBZONE: sz1
-      SYNC_NODE_ID: leaf02
-      SYNC_BOOTSTRAP_ENABLED: false
-      SYNC_OUTBOX_ENABLED: false
-      SYNC_CONSUMER_ENABLED: true
-      SYNC_CONSUMER_STREAM: DOWN_SUBZONE_STREAM
-      SYNC_CONSUMER_FILTER: down.subzone.z1.sz1.>
-      SYNC_RELAY_ENABLED: false
-      SYNC_POC_ADMIN_ENABLED: true
-      SPRING_FLYWAY_ENABLED: "false"
-    ports:
-      - "18084:8080"
-    networks:
-      - erp_nats
-
-  sync-leaf3:
-    build: .
-    restart: unless-stopped
-    depends_on:
-      nats-leaf3:
-        condition: service_healthy
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    environment:
-      DB_HOST: 192.168.3.99
-      DB_PORT: 5436
-      DB_NAME: dockyard_dev
-      DB_USER: postgres
-      DB_PASSWORD: postgres
-      NATS_URL: nats://${SYNC_NATS_USERNAME}:${SYNC_NATS_PASSWORD}@nats-leaf3:4222
-      SERVER_PORT: 8080
-      SYNC_TIER: leaf
-      SYNC_ZONE: z1
-      SYNC_SUBZONE: sz1
-      SYNC_NODE_ID: leaf03
-      SYNC_BOOTSTRAP_ENABLED: false
-      SYNC_OUTBOX_ENABLED: false
-      SYNC_CONSUMER_ENABLED: true
-      SYNC_CONSUMER_STREAM: DOWN_SUBZONE_STREAM
-      SYNC_CONSUMER_FILTER: down.subzone.z1.sz1.>
-      SYNC_RELAY_ENABLED: false
-      SYNC_POC_ADMIN_ENABLED: true
-      SPRING_FLYWAY_ENABLED: "false"
-    ports:
-      - "18085:8080"
-    networks:
-      - erp_nats
-
-  sync-leaf4:
-    build: .
-    restart: unless-stopped
-    depends_on:
-      nats-leaf4:
-        condition: service_healthy
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    environment:
-      DB_HOST: 192.168.3.99
-      DB_PORT: 5436
-      DB_NAME: dockyard_dev
-      DB_USER: postgres
-      DB_PASSWORD: postgres
-      NATS_URL: nats://${SYNC_NATS_USERNAME}:${SYNC_NATS_PASSWORD}@nats-leaf4:4222
-      SERVER_PORT: 8080
-      SYNC_TIER: leaf
-      SYNC_ZONE: z1
-      SYNC_SUBZONE: sz1
-      SYNC_NODE_ID: leaf04
-      SYNC_BOOTSTRAP_ENABLED: false
-      SYNC_OUTBOX_ENABLED: false
-      SYNC_CONSUMER_ENABLED: true
-      SYNC_CONSUMER_STREAM: DOWN_SUBZONE_STREAM
-      SYNC_CONSUMER_FILTER: down.subzone.z1.sz1.>
-      SYNC_RELAY_ENABLED: false
-      SYNC_POC_ADMIN_ENABLED: true
-      SPRING_FLYWAY_ENABLED: "false"
-    ports:
-      - "18086:8080"
-    networks:
-      - erp_nats
-
-  sync-leaf5:
-    build: .
-    restart: unless-stopped
-    depends_on:
-      nats-leaf5:
-        condition: service_healthy
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    environment:
-      DB_HOST: 192.168.3.99
-      DB_PORT: 5436
-      DB_NAME: dockyard_dev
-      DB_USER: postgres
-      DB_PASSWORD: postgres
-      NATS_URL: nats://${SYNC_NATS_USERNAME}:${SYNC_NATS_PASSWORD}@nats-leaf5:4222
-      SERVER_PORT: 8080
-      SYNC_TIER: leaf
-      SYNC_ZONE: z1
-      SYNC_SUBZONE: sz1
-      SYNC_NODE_ID: leaf05
-      SYNC_BOOTSTRAP_ENABLED: false
-      SYNC_OUTBOX_ENABLED: false
-      SYNC_CONSUMER_ENABLED: true
-      SYNC_CONSUMER_STREAM: DOWN_SUBZONE_STREAM
-      SYNC_CONSUMER_FILTER: down.subzone.z1.sz1.>
-      SYNC_RELAY_ENABLED: false
-      SYNC_POC_ADMIN_ENABLED: true
-      SPRING_FLYWAY_ENABLED: "false"
-    ports:
-      - "18087:8080"
-    networks:
-      - erp_nats
-
-  # Utility container (optional, but kept stable)
-  nats-box:
+  # Utility container (nats CLI)
+  nats_box:
+    container_name: nats_box
     image: synadia/nats-box:latest
     entrypoint: ["/bin/sh", "-c"]
     command: ["tail -f /dev/null"]
     environment:
-      NATS_URL: nats://${SYNC_NATS_USERNAME}:${SYNC_NATS_PASSWORD}@nats-central:4222
+      NATS_URL: nats://${SYNC_NATS_USERNAME:-sync}:${SYNC_NATS_PASSWORD:-sync}@nats-nhq-central:4222
     depends_on:
-      nats-central:
+      nats_nhq_central:
         condition: service_healthy
-    networks:
-      - erp_nats
+    networks: [erp_nats]
 
   # --- NATS UI (Synadia NUI) ---
-  nats-nui:
+  nats_nui:
     image: ghcr.io/nats-nui/nui:latest
-    container_name: syncmgmt_phase3-nats-nui
+    container_name: nats_nui
     restart: unless-stopped
     ports:
       - "31311:31311"
     volumes:
-      - nats-nui-db:/db
+      - nats_nui_db:/db
     depends_on:
-      nats-central:
+      nats_nhq_central:
         condition: service_healthy
-    networks:
-      - erp_nats
+    networks: [erp_nats]
 
-  # --- Optional: alternate web UI container you are already using ---
-  nats-webui:
+  # --- Optional: NATS web UI ---
+  nats_webui:
     image: sphqxe/nats-webui:latest
-    container_name: syncmgmt_phase3-nats-webui
+    container_name: nats_webui
     restart: unless-stopped
     ports:
       - "80:80"
     depends_on:
-      nats-central:
+      nats_nhq_central:
         condition: service_healthy
-    networks:
-      - erp_nats
+    networks: [erp_nats]
 
 volumes:
-  nats-central-data:
-  nats-zone-data:
-  nats-subzone-data:
-  nats-leaf1-data:
-  nats-leaf2-data:
-  nats-leaf3-data:
-  nats-leaf4-data:
-  nats-leaf5-data:
-  nats-nui-db:
+  nats_nhq_central_data:
+
+  nats_nhq_zone_snc_data:
+  nats_nhq_zone_enc_data:
+  nats_nhq_zone_wnc_data:
+
+  nats_nhq_subzone_snc_unit1_data:
+  nats_nhq_subzone_snc_unit2_data:
+  nats_nhq_subzone_enc_unit1_data:
+  nats_nhq_subzone_enc_unit2_data:
+  nats_nhq_subzone_wnc_unit1_data:
+  nats_nhq_subzone_wnc_unit2_data:
+
+  nats_nhq_leaf_central_nhq_none_desk1_data:
+  nats_nhq_leaf_central_nhq_none_desk2_data:
+
+  nats_nhq_leaf_zone_snc_none_desk1_data:
+  nats_nhq_leaf_zone_snc_none_desk2_data:
+  nats_nhq_leaf_zone_enc_none_desk1_data:
+  nats_nhq_leaf_zone_enc_none_desk2_data:
+  nats_nhq_leaf_zone_wnc_none_desk1_data:
+  nats_nhq_leaf_zone_wnc_none_desk2_data:
+
+  nats_nhq_leaf_subzone_snc_unit1_desk1_data:
+  nats_nhq_leaf_subzone_snc_unit1_desk2_data:
+  nats_nhq_leaf_subzone_snc_unit2_desk1_data:
+  nats_nhq_leaf_subzone_snc_unit2_desk2_data:
+  nats_nhq_leaf_subzone_enc_unit1_desk1_data:
+  nats_nhq_leaf_subzone_enc_unit1_desk2_data:
+  nats_nhq_leaf_subzone_enc_unit2_desk1_data:
+  nats_nhq_leaf_subzone_enc_unit2_desk2_data:
+  nats_nhq_leaf_subzone_wnc_unit1_desk1_data:
+  nats_nhq_leaf_subzone_wnc_unit1_desk2_data:
+  nats_nhq_leaf_subzone_wnc_unit2_desk1_data:
+  nats_nhq_leaf_subzone_wnc_unit2_desk2_data:
+
+  nats_nui_db:
 
 networks:
   erp_nats:

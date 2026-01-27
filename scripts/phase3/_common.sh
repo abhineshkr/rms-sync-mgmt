@@ -29,6 +29,34 @@ SYNC_NATS_USERNAME="${SYNC_NATS_USERNAME:-$(python3 "$TOPOLOGY_TOOL" get auth.ad
 SYNC_NATS_PASSWORD="${SYNC_NATS_PASSWORD:-$(python3 "$TOPOLOGY_TOOL" get auth.admin.password)}"
 export SYNC_CENTRAL_ID SYNC_NATS_USERNAME SYNC_NATS_PASSWORD
 
+require_valid_dotenv() {
+  if [[ -f ".env" ]]; then
+    # allow blank lines and comments; reject anything not KEY=VALUE
+    if grep -nEv '^\s*(#.*)?$|^[A-Za-z_][A-Za-z0-9_]*=.*$' .env >/dev/null; then
+      echo "ERROR: .env contains invalid lines. Only KEY=VALUE is allowed." >&2
+      echo "Invalid lines:" >&2
+      grep -nEv '^\s*(#.*)?$|^[A-Za-z_][A-Za-z0-9_]*=.*$' .env >&2
+      exit 1
+    fi
+  fi
+}
+
+
+
+# --- Use phase3_small override compose (additive) if present ---
+COMPOSE_FILE_SMALL_OVERRIDE="$ROOT_DIR/docker-compose.phase3.small.override.yml"
+
+_dc() {
+  log_info "docker compose (phase3_small) $*"
+  if [[ -f "$COMPOSE_FILE_SMALL_OVERRIDE" ]]; then
+    (cd "$ROOT_DIR" && docker compose -p "$PROJECT_NAME" -f "$COMPOSE_FILE" -f "$COMPOSE_FILE_SMALL_OVERRIDE" "$@")
+  else
+    (cd "$ROOT_DIR" && docker compose -p "$PROJECT_NAME" -f "$COMPOSE_FILE" "$@")
+  fi
+}
+
+
+
 # Generate nats/generated/authz_<centralId>.conf (mounted into every NATS container).
 phase3_generate_nats_authz() {
   local out="$ROOT_DIR/nats/generated/authz_${SYNC_CENTRAL_ID}.conf"

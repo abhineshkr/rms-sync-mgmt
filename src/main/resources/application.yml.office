@@ -6,13 +6,13 @@ spring:
     name: sync-poc-app
 
   r2dbc:
-    url: r2dbc:postgresql://${DB_HOST:192.168.1.13}:${DB_PORT:5432}/${DB_NAME:dockyard_dev}
+    url: r2dbc:postgresql://${DB_HOST:192.168.3.99}:${DB_PORT:5432}/${DB_NAME:dockyard_dev}
     username: ${DB_USER:postgres}
     password: ${DB_PASSWORD:postgres}
 
   flyway:
     enabled: true
-    url: jdbc:postgresql://${DB_HOST:192.168.1.13}:${DB_PORT:5432}/${DB_NAME:syncmgmt}
+    url: jdbc:postgresql://${DB_HOST:192.168.3.99}:${DB_PORT:5432}/${DB_NAME:syncmgmt}
     user: ${DB_USER:postgres}
     password: ${DB_PASSWORD:postgres}
 

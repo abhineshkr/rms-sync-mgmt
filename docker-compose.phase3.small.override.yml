@@ -1,0 +1,55 @@
+services:
+  # Add RFC-compliant aliases (NO underscores)
+  nats_nhq_central:
+    networks:
+      erp_nats:
+        aliases:
+          - nats-nhq-central
+
+  nats_nhq_zone_snc:
+    networks:
+      erp_nats:
+        aliases:
+          - nats-nhq-zone-snc
+
+  nats_nhq_subzone_snc_unit1:
+    networks:
+      erp_nats:
+        aliases:
+          - nats-nhq-subzone-snc-unit1
+
+  nats_nhq_leaf_subzone_snc_unit1_desk1:
+    networks:
+      erp_nats:
+        aliases:
+          - nats-leaf-subzone-snc-unit1-desk1
+
+  nats_nhq_leaf_central_nhq_none_desk1:
+    networks:
+      erp_nats:
+        aliases:
+          - nats-leaf-central-nhq-none-desk1
+
+  nats_nhq_leaf_zone_snc_none_desk1:
+    networks:
+      erp_nats:
+        aliases:
+          - nats-leaf-zone-snc-none-desk1
+
+  # Override NATS_URL for apps to use aliases (NO underscores)
+  sync_relay_nhq_central:
+    environment:
+      NATS_URL: nats://${SYNC_NATS_USERNAME:-sync}:${SYNC_NATS_PASSWORD:-sync}@nats-nhq-central:4222
+
+  sync_relay_nhq_zone_snc:
+    environment:
+      NATS_URL: nats://${SYNC_NATS_USERNAME:-sync}:${SYNC_NATS_PASSWORD:-sync}@nats-nhq-zone-snc:4222
+
+  sync_relay_nhq_subzone_snc_unit1:
+    environment:
+      NATS_URL: nats://${SYNC_NATS_USERNAME:-sync}:${SYNC_NATS_PASSWORD:-sync}@nats-nhq-subzone-snc-unit1:4222
+
+  sync_leaf_nhq_subzone_snc_unit1_desk1:
+    environment:
+      NATS_URL: nats://${SYNC_NATS_USERNAME:-sync}:${SYNC_NATS_PASSWORD:-sync}@nats-leaf-subzone-snc-unit1-desk1:4222
+      SYNC_OUTBOX_POLL_INTERVAL: 1s

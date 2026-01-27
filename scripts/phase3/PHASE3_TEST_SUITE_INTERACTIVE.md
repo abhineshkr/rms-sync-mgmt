@@ -32,6 +32,19 @@ From the repo root:
 
 ```bash
 cd rms-sync-mgmt
+./scripts/phase3/01_master_menu.sh
+```
+
+You will be prompted to choose:
+
+- **Fast mode** (desk1 only)
+- **Full mode** (desk1 + desk2)
+
+The menu exports `LEAF_SET` accordingly and then starts the suite runner.
+
+Alternatively, you can run the suite runner directly:
+
+```bash
 ./scripts/phase3/02_run_suite_interactive.sh
 ```
 
