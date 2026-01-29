@@ -2,13 +2,15 @@
 set -euo pipefail
 
 source "$(cd "$(dirname "$0")" && pwd)/_common_small.sh"
-source "$(cd "$(dirname "$0")" && pwd)/_poc_http.sh"
+source "$(cd "$(dirname "$0")" && pwd)/_poc_http_v2.sh"
 
 phase3_prereqs
 
 log_title "SMALL Phase3 – OFFLINE/ONLINE: Zone relay offline replay (leaf backlog drains)"
 
-DURABLE="tplan3_replay_up_zone_snc"
+# WorkQueue retention forbids overlapping consumer filters on the same stream.
+# Reuse the same durable as the UP smoke test (idempotent).
+DURABLE="tplan3_central_up_zone_snc"
 FILTER="up.zone.snc.>"
 BATCH="${1:-5}"
 

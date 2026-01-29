@@ -2,8 +2,12 @@
 set -euo pipefail
 
 # v2: fixes Java Duration format for /poc/consumer/pull
-# Original used: "PT${timeout_ms}MS" (invalid for Duration.parse)
-# New uses:      "PT${timeout_s}S"  (valid)
+#
+# IMPORTANT (manual curl): the PoC endpoint expects timeout as an ISO-8601 Java Duration,
+# e.g. "PT5S" (5 seconds), "PT30S", "PT1M". A plain "5s" will return HTTP 400.
+#
+# Original scripts used: "PT${timeout_ms}MS" (not accepted by Duration.parse)
+# New scripts use:      "PT${timeout_s}S"  (accepted)
 
 poc_ping() {
   local base="$1"

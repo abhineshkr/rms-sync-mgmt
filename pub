@@ -1,0 +1,17 @@
+[H[2J[3J[H[2J[3J[H[2J[3J[H[2J[3JNAME                               IMAGE                                              COMMAND                  SERVICE                            CREATED       STATUS                 PORTS
+nats_box                           synadia/nats-box:latest                            "/bin/sh -c 'tail -f…"   nats_box                           2 hours ago   Up 2 hours             
+nats_nhq_central                   nats:2.10-alpine                                   "docker-entrypoint.s…"   nats_nhq_central                   2 hours ago   Up 2 hours (healthy)   0.0.0.0:4222->4222/tcp, [::]:4222->4222/tcp, 0.0.0.0:8222->8222/tcp, [::]:8222->8222/tcp, 6222/tcp
+nats_nhq_subzone_snc_unit1         nats:2.10-alpine                                   "docker-entrypoint.s…"   nats_nhq_subzone_snc_unit1         2 hours ago   Up 2 hours (healthy)   6222/tcp, 0.0.0.0:4231->4222/tcp, [::]:4231->4222/tcp, 0.0.0.0:8231->8222/tcp, [::]:8231->8222/tcp
+nats_nhq_zone_snc                  nats:2.10-alpine                                   "docker-entrypoint.s…"   nats_nhq_zone_snc                  2 hours ago   Up 2 hours (healthy)   6222/tcp, 0.0.0.0:4223->4222/tcp, [::]:4223->4222/tcp, 0.0.0.0:8223->8222/tcp, [::]:8223->8222/tcp
+sync_relay_nhq_central             syncmgmt_phase3-sync_relay_nhq_central             "java -jar /app/app.…"   sync_relay_nhq_central             2 hours ago   Up 2 hours             0.0.0.0:18080->8080/tcp, [::]:18080->8080/tcp
+sync_relay_nhq_subzone_snc_unit1   syncmgmt_phase3-sync_relay_nhq_subzone_snc_unit1   "java -jar /app/app.…"   sync_relay_nhq_subzone_snc_unit1   2 hours ago   Up 2 hours             0.0.0.0:18083->8080/tcp, [::]:18083->8080/tcp
+running healthy
+             _             _               
+ _ __   __ _| |_ ___      | |__   _____  __
+| '_ \ / _` | __/ __|_____| '_ \ / _ \ \/ /
+| | | | (_| | |_\__ \_____| |_) | (_) >  < 
+|_| |_|\__,_|\__|___/     |_.__/ \___/_/\_\
+                                           
+nats-box v0.5.0
+nats-nhq-zone-snc (172.18.0.3:4222) open
+0

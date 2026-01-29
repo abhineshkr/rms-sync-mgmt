@@ -8,10 +8,6 @@ phase3_context
 
 log_title "SMALL Phase3 – UP: Central (JS quorum)"
 
-# Option B: Central JS runs in a *clustered* JetStream meta-group (size=3).
-# If we start only the central NATS node, JetStream can stay in 10008 (temporarily unavailable)
-# waiting for quorum. So for the SMALL flow we bring up the *peer NATS nodes* early.
-
 log_step "Starting Central NATS (first)"
 _dc up -d "${SVC_CENTRAL_NATS}"
 
@@ -36,5 +32,16 @@ _dc up -d \
 
 log_step "Waiting for central app /poc/ping (${CENTRAL_HTTP})"
 wait_http_or_fail "${CENTRAL_HTTP}/poc/ping" 120
+
+ENSURE_SCRIPT="$(cd "$(dirname "$0")" && pwd)/02_js_ensure_streams_v2.sh"
+
+log_step "Ensuring Phase-3 streams on Central (${NATS_URL_CENTRAL})"
+"${ENSURE_SCRIPT}" "${NATS_URL_CENTRAL}"
+
+log_step "Ensuring Phase-3 streams on Zone (${NATS_URL_ZONE_SNC})"
+"${ENSURE_SCRIPT}" "${NATS_URL_ZONE_SNC}"
+
+log_step "Ensuring Phase-3 streams on Subzone (${NATS_URL_SUBZONE_SNC_UNIT1})"
+"${ENSURE_SCRIPT}" "${NATS_URL_SUBZONE_SNC_UNIT1}"
 
 log_ok "Central is up"

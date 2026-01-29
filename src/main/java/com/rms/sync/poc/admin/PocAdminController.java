@@ -19,6 +19,8 @@ import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 
 import java.nio.charset.StandardCharsets;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
@@ -209,7 +211,8 @@ public class PocAdminController {
         }
     }
 
-    public record PullRequest(String stream, String durable, String filterSubject, int batchSize, Duration timeout) {
+    public record PullRequest(String stream, String durable, String filterSubject, int batchSize,
+                              @JsonDeserialize(using = FlexibleDurationDeserializer.class) Duration timeout) {
         public PullRequest {
             if (stream == null || stream.isBlank()) throw new IllegalArgumentException("stream is required");
             if (durable == null || durable.isBlank()) throw new IllegalArgumentException("durable is required");

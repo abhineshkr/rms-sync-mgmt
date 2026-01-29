@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Phase-3 SMALL helper (NEW). Reuses the existing phase3/_common.sh.
-# This file and all scripts under scripts/phase3_small are additive.
+# Phase-3 SMALL helper.
+#
+# Intended to be *sourced* by scripts under scripts/phase3_small.
+# Reuses scripts/phase3/_common.sh for logging, topology, and compose context.
 
 # IMPORTANT: use BASH_SOURCE so this works both when executed and when sourced.
 _PHASE3_SMALL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -31,12 +33,26 @@ ZONE_SNC_HTTP="http://localhost:${ZONE_SNC_HTTP_PORT:-18082}"
 SUBZONE_SNC_UNIT1_HTTP="http://localhost:${SUBZONE_SNC_UNIT1_HTTP_PORT:-18083}"
 
 # ---- NATS URLs as seen from inside the docker network (for nats-box CLI) ----
-NATS_URL_CENTRAL="nats://${SYNC_NATS_USERNAME}:${SYNC_NATS_PASSWORD}@${SVC_CENTRAL_NATS}:4222"
-NATS_URL_ZONE_SNC="nats://${SYNC_NATS_USERNAME}:${SYNC_NATS_PASSWORD}@${SVC_ZONE_SNC_NATS}:4222"
-NATS_URL_SUBZONE_SNC_UNIT1="nats://${SYNC_NATS_USERNAME}:${SYNC_NATS_PASSWORD}@${SVC_SUBZONE_SNC_UNIT1_NATS}:4222"
-NATS_URL_LEAF_SUBZONE_SNC_UNIT1_DESK1="nats://${SYNC_NATS_USERNAME}:${SYNC_NATS_PASSWORD}@${SVC_LEAF_SUBZONE_SNC_UNIT1_DESK1_NATS}:4222"
-NATS_URL_LEAF_CENTRAL_DESK1="nats://${SYNC_NATS_USERNAME}:${SYNC_NATS_PASSWORD}@${SVC_LEAF_CENTRAL_DESK1_NATS}:4222"
-NATS_URL_LEAF_ZONE_SNC_DESK1="nats://${SYNC_NATS_USERNAME}:${SYNC_NATS_PASSWORD}@${SVC_LEAF_ZONE_SNC_DESK1_NATS}:4222"
+#
+# docker-compose.phase3.yml defines stable *network aliases* for each NATS node.
+# Use those aliases (hyphenated) as hostnames for nats-box.
+NATS_HOST_CENTRAL="nats-nhq-central"
+NATS_HOST_ZONE_SNC="nats-nhq-zone-snc"
+NATS_HOST_SUBZONE_SNC_UNIT1="nats-nhq-subzone-snc-unit1"
+NATS_HOST_LEAF_SUBZONE_SNC_UNIT1_DESK1="nats-nhq-leaf-subzone-snc-unit1-desk1"
+NATS_HOST_LEAF_CENTRAL_DESK1="nats-nhq-leaf-central-nhq-none-desk1"
+NATS_HOST_LEAF_ZONE_SNC_DESK1="nats-nhq-leaf-zone-snc-none-desk1"
+
+NATS_URL_CENTRAL="nats://${SYNC_NATS_USERNAME}:${SYNC_NATS_PASSWORD}@${NATS_HOST_CENTRAL}:4222"
+NATS_URL_ZONE_SNC="nats://${SYNC_NATS_USERNAME}:${SYNC_NATS_PASSWORD}@${NATS_HOST_ZONE_SNC}:4222"
+NATS_URL_SUBZONE_SNC_UNIT1="nats://${SYNC_NATS_USERNAME}:${SYNC_NATS_PASSWORD}@${NATS_HOST_SUBZONE_SNC_UNIT1}:4222"
+NATS_URL_LEAF_SUBZONE_SNC_UNIT1_DESK1="nats://${SYNC_NATS_USERNAME}:${SYNC_NATS_PASSWORD}@${NATS_HOST_LEAF_SUBZONE_SNC_UNIT1_DESK1}:4222"
+NATS_URL_LEAF_CENTRAL_DESK1="nats://${SYNC_NATS_USERNAME}:${SYNC_NATS_PASSWORD}@${NATS_HOST_LEAF_CENTRAL_DESK1}:4222"
+NATS_URL_LEAF_ZONE_SNC_DESK1="nats://${SYNC_NATS_USERNAME}:${SYNC_NATS_PASSWORD}@${NATS_HOST_LEAF_ZONE_SNC_DESK1}:4222"
+
+# Export so they survive subshells ("docker exec ...") and sourced scripts.
+export NATS_URL_CENTRAL NATS_URL_ZONE_SNC NATS_URL_SUBZONE_SNC_UNIT1 \
+       NATS_URL_LEAF_SUBZONE_SNC_UNIT1_DESK1 NATS_URL_LEAF_CENTRAL_DESK1 NATS_URL_LEAF_ZONE_SNC_DESK1
 
 # ---- JetStream objects used in PoC ----
 STREAM_UP_LEAF="UP_LEAF_STREAM"
@@ -46,7 +62,8 @@ STREAM_DOWN_CENTRAL="DOWN_CENTRAL_STREAM"
 STREAM_DOWN_ZONE="DOWN_ZONE_STREAM"
 STREAM_DOWN_SUBZONE="DOWN_SUBZONE_STREAM"
 
-# ---- Expected durable names created by relays ----
+# ---- Expected durable names created by relays (legacy naming) ----
+# Keep these as *best-effort* checks: they may differ across branches.
 DUR_ZONE_DOWN_CENTRAL="zone_snc_none_zone_snc_01__down__central"
 DUR_ZONE_UP_SUBZONE="zone_snc_none_zone_snc_01__up__subzone"
 DUR_SUBZONE_UP_LEAF="subzone_snc_unit1_subzone_snc_unit1_01__up__leaf"
@@ -58,15 +75,15 @@ nats_box_exec() {
   docker exec -i "${SVC_NATS_BOX}" sh -lc "$*"
 }
 
+nats_box_nats() {
+  # Usage: nats_box_nats --server <nats://...> <nats subcommand ...>
+  docker exec -i "${SVC_NATS_BOX}" nats "$@"
+}
+
 wait_http_or_fail() {
   local url="$1"
   local timeout_s="${2:-90}"
   _wait_for_http "$url" "$timeout_s" 2
-}
-
-nats_box_nats() {
-  # Usage: nats_box_nats --server <nats://...> <nats subcommand ...>
-  docker exec -i "${SVC_NATS_BOX}" nats "$@"
 }
 
 wait_js_or_fail() {
@@ -80,10 +97,35 @@ wait_js_or_fail() {
     if nats_box_nats --server "$server" stream ls >/dev/null 2>&1; then
       return 0
     fi
-    log_info "Waiting for JetStream on ${server}... (${i}/${timeout_s})"
+    if (( i % 10 == 0 )); then
+      log_info "Waiting for JetStream on ${server}... (${i}/${timeout_s})"
+    fi
     sleep 1
   done
   log_fail "JetStream did not become ready within ${timeout_s}s on ${server}"
+}
+
+wait_container_healthy_or_fail() {
+  # Usage: wait_container_healthy_or_fail <container_name> [timeout_seconds]
+  local cname="$1"
+  local timeout_s="${2:-90}"
+  local i
+
+  for ((i=1; i<=timeout_s; i++)); do
+    local st
+    st="$(docker inspect -f '{{.State.Health.Status}}' "${cname}" 2>/dev/null || true)"
+    if [[ "${st}" == "healthy" ]]; then
+      return 0
+    fi
+    if [[ "${st}" == "unhealthy" ]]; then
+      log_fail "Container ${cname} became unhealthy. See: docker logs ${cname}"
+    fi
+    if (( i % 10 == 0 )); then
+      log_info "Waiting for ${cname} to become healthy... (${i}/${timeout_s})"
+    fi
+    sleep 1
+  done
+  log_fail "Timed out waiting for container ${cname} to become healthy"
 }
 
 # --- phase3_small: compose override support (additive) ---

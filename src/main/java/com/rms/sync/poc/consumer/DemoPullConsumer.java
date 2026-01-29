@@ -17,6 +17,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 import reactor.core.Disposable;
@@ -78,6 +79,19 @@ public class DemoPullConsumer implements DisposableBean {
      */
     @EventListener(JetStreamBootstrapCompleteEvent.class)
     public void onBootstrapComplete() {
+        startIfNotStarted();
+    }
+
+    /**
+     * Also start on normal app startup.
+     *
+     * This eliminates the failure mode where bootstrap is disabled and the
+     * {@link JetStreamBootstrapCompleteEvent} never fires, leaving no durable
+     * consumer created. The subscribe loop is already safe and will retry until
+     * the stream exists, so it is safe to start here.
+     */
+    @EventListener(ApplicationReadyEvent.class)
+    public void onAppReady() {
         startIfNotStarted();
     }
 

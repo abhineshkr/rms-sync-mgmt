@@ -1,126 +1,95 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-source "$(cd "$(dirname "$0")" && pwd)/_common_small.sh"
+# Ensure Phase-3 PoC streams exist (idempotent).
+#
+# Usage:
+#   scripts/phase3_small/02_js_ensure_streams_v2.sh [nats_url]
+#
+# If nats_url is omitted, defaults to $NATS_URL_CENTRAL from _common_small.sh.
+
+_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${_DIR}/_common_small.sh"
 
 phase3_prereqs
 
-log_title "SMALL Phase3 – Ensure JetStream streams (idempotent) [v2]"
+# nats-box is the CLI runner; ensure it's present/running.
+_dc up -d "${SVC_NATS_BOX}" >/dev/null
 
-log_step "Waiting for central JetStream to be ready"
-wait_js_or_fail "${NATS_URL_CENTRAL}" 60
+SERVER="${1:-${NATS_URL_CENTRAL}}"
+CENTRAL_ID="${SYNC_CENTRAL_ID:-nhq}"
 
-# 168h = 604800s = 604800000000000ns
-MAX_AGE_NS=604800000000000
+log_step "Ensuring Phase-3 streams on ${SERVER} (centralId=${CENTRAL_ID})"
 
-# --- Low level JS API helpers (use inside nats-box) ---
-
-js_req() {
-  local subj="$1"
-  local payload="${2:-}"
-  # keep stdout clean; if nats fails, propagate error
-  nats_box_nats --server "${NATS_URL_CENTRAL}" req --raw "${subj}" "${payload}"
+_js_req_raw() {
+  # Usage: _js_req_raw <subject> [payload]
+  local subj="$1"; shift
+  local payload="${1:-}"
+  nats_box_nats --server "$SERVER" req --raw "$subj" "$payload"
 }
 
-js_info() {
-  local stream="$1"
-  # If not found, server returns JSON with err_code=10059
-  js_req "\$JS.API.STREAM.INFO.${stream}" "" 2>/dev/null || true
+_json_get() {
+  # Usage: echo '{...}' | _json_get key
+  local key="$1"
+  python3 - "$key" <<'PY'
+import sys, json
+key = sys.argv[1]
+try:
+    obj = json.load(sys.stdin)
+    val = obj.get(key, None)
+    print('' if val is None else val)
+except Exception:
+    print('')
+PY
 }
 
-json_has_err_code() {
-  local out="$1"
-  local code="$2"
-  [[ -n "$out" ]] && echo "$out" | grep -q "\"err_code\"[[:space:]]*:[[:space:]]*${code}"
+_is_stream_not_found() {
+  # JS StreamNotFound == 10059
+  local code
+  code="$(echo "$1" | _json_get error_code)"
+  [[ "$code" == "10059" ]]
 }
 
-stream_missing() {
-  local out="$1"
-  [[ -z "$out" ]] && return 0
-  json_has_err_code "$out" 10059 && return 0
-  return 1
-}
-
-js_temporarily_unavailable() {
-  local out="$1"
-  [[ -z "$out" ]] && return 1
-  json_has_err_code "$out" 10008 && return 0
-  return 1
-}
-
-js_create_stream() {
-  local stream="$1"
-  local config_json="$2"   # IMPORTANT: StreamConfig at top-level
-  js_req "\$JS.API.STREAM.CREATE.${stream}" "${config_json}"
-}
-
-# --- Ensure logic ---
-
-ensure_stream() {
-  local name="$1"
-  local subjects_json="$2"   # JSON array, e.g. ["up.leaf.>"]
-  local retention="$3"       # workqueue | interest
-
-  log_step "Stream ensure: ${name}"
+_ensure_stream() {
+  # Usage: _ensure_stream <stream_name> <subjects_json> <retention>
+  local stream="$1" subjects_json="$2" retention="$3"
 
   local info
-  info="$(js_info "${name}")"
-
-  if stream_missing "${info}"; then
-    log_info "Creating stream ${name}"
-
-    # StreamConfig JSON (no wrapper "config":{})
-    local cfg
-    cfg=$(
-      cat <<JSON
-{"name":"${name}","subjects":${subjects_json},"retention":"${retention}","storage":"file","max_age":${MAX_AGE_NS},"num_replicas":1,"discard":"old"}
-JSON
-    )
-
-    # retry create if JS is still starting
-    local attempt=1
-    local max_attempts=10
-    while true; do
-      local out
-      out="$(js_create_stream "${name}" "${cfg}" 2>/dev/null || true)"
-
-      if [[ -n "$out" ]] && ! json_has_err_code "$out" 10008; then
-        # created or already exists etc. Validate quickly with info.
-        local post
-        post="$(js_info "${name}")"
-        if stream_missing "${post}"; then
-          echo "ERROR: stream ${name} still missing after create. Raw response: $out" >&2
-          exit 1
-        fi
-        log_ok "Created stream ${name}"
-        break
-      fi
-
-      if (( attempt >= max_attempts )); then
-        echo "ERROR: JetStream not ready (10008) while creating ${name} after ${max_attempts} attempts" >&2
-        echo "Last response: ${out}" >&2
-        exit 1
-      fi
-
-      log_info "JetStream not ready yet (10008). Retry ${attempt}/${max_attempts}..."
-      attempt=$((attempt + 1))
-      sleep 1
-    done
-  else
-    log_ok "Stream exists: ${name}"
+  info="$(_js_req_raw "\$JS.API.STREAM.INFO.${stream}" "" 2>/dev/null || true)"
+  if [[ -n "$info" ]] && ! _is_stream_not_found "$info"; then
+    log_info "Stream exists: ${stream}"
+    return 0
   fi
+
+  local payload
+  payload=$(cat <<JSON
+{
+  "name": "${stream}",
+  "subjects": ${subjects_json},
+  "retention": "${retention}",
+  "storage": "file",
+  "replicas": 1,
+  "max_msgs_per_subject": -1,
+  "max_age": 0,
+  "discard": "old",
+  "deny_delete": false,
+  "deny_purge": false
+}
+JSON
+)
+
+  _js_req_raw "\$JS.API.STREAM.CREATE.${stream}" "$payload" >/dev/null
+  log_ok "Created stream: ${stream}"
 }
 
-# --- Streams ---
+# Upstream streams: WorkQueue (single durable per link)
+_ensure_stream "$STREAM_UP_LEAF"     "[\"up.leaf.${CENTRAL_ID}.>\"]"     "workqueue"
+_ensure_stream "$STREAM_UP_SUBZONE"  "[\"up.subzone.${CENTRAL_ID}.>\"]"  "workqueue"
+_ensure_stream "$STREAM_UP_ZONE"     "[\"up.zone.${CENTRAL_ID}.>\"]"     "workqueue"
 
-# Workqueue UP streams
-ensure_stream "${STREAM_UP_LEAF}"      '["up.leaf.>"]'      workqueue
-ensure_stream "${STREAM_UP_SUBZONE}"   '["up.subzone.>"]'   workqueue
-ensure_stream "${STREAM_UP_ZONE}"      '["up.zone.>"]'      workqueue
+# Downstream streams: Interest (fan-out)
+_ensure_stream "$STREAM_DOWN_CENTRAL" "[\"down.central.${CENTRAL_ID}.>\"]" "interest"
+_ensure_stream "$STREAM_DOWN_ZONE"    "[\"down.zone.${CENTRAL_ID}.>\"]"    "interest"
+_ensure_stream "$STREAM_DOWN_SUBZONE" "[\"down.subzone.${CENTRAL_ID}.>\"]" "interest"
 
-# Interest DOWN streams
-ensure_stream "${STREAM_DOWN_CENTRAL}" '["down.central.>"]' interest
-ensure_stream "${STREAM_DOWN_ZONE}"    '["down.zone.>"]'    interest
-ensure_stream "${STREAM_DOWN_SUBZONE}" '["down.subzone.>"]' interest
-
-log_ok "JetStream streams are present [v2]"
+log_ok "Streams ensured on ${SERVER}"

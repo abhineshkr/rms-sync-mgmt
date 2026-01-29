@@ -35,6 +35,27 @@ if [[ -z "${out}" ]]; then
 fi
 
 acked="$(echo "${out}" | _json_get acked)"
+
+# Some older/newer POC responses may use a different field name, or may return
+# an error envelope (e.g., {status,error,...}) where `acked` is absent.
+if [[ -z "${acked}" ]]; then
+  # Try a couple common alternates.
+  acked="$(echo "${out}" | _json_get acknowledged)"
+fi
+if [[ -z "${acked}" ]]; then
+  acked="$(echo "${out}" | _json_get ackCount)"
+fi
+
+if [[ -z "${acked}" ]]; then
+  status="$(echo "${out}" | _json_get status)"
+  err="$(echo "${out}" | _json_get error)"
+  if [[ -n "${status}" || -n "${err}" ]]; then
+    log_fail "consumer/pull did not return 'acked'. Looks like an error response: status='${status}' error='${err}'. Full body: ${out}"
+  else
+    log_fail "consumer/pull did not return 'acked'. Full body: ${out}"
+  fi
+fi
+
 assert_int_ge "acked" "${acked}" 1
 
 log_ok "UP end-to-end smoke (v2) passed"

@@ -11,6 +11,9 @@ log_title "SMALL Phase3 – UP: Add Leaf (subzone-attached) desk1"
 log_step "Starting Leaf NATS + Leaf app"
 _dc up -d "${SVC_LEAF_SUBZONE_SNC_UNIT1_DESK1_NATS}" "${SVC_APP_LEAF_SUBZONE_SNC_UNIT1_DESK1}"
 
+# Leaf app publishes via JetStream locally (OutboxDispatcher -> JetStreamPublisher).
+js_ensure_phase3_streams_on "${NATS_URL_LEAF_SUBZONE_SNC_UNIT1_DESK1}"
+
 log_step "Waiting for Leaf app /poc/ping (${LEAF_DESK1_HTTP})"
 wait_http_or_fail "${LEAF_DESK1_HTTP}/poc/ping" 120
 
