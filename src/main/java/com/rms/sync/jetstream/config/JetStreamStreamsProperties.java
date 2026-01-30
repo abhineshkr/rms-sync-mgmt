@@ -34,12 +34,12 @@ public class JetStreamStreamsProperties {
     public List<StreamSpec> all() {
         List<StreamSpec> out = new ArrayList<>();
         if (streams != null) {
-            if (streams.getUpLeaf() != null) out.add(streams.getUpLeaf());
-            if (streams.getUpSubzone() != null) out.add(streams.getUpSubzone());
-            if (streams.getUpZone() != null) out.add(streams.getUpZone());
-            if (streams.getDownCentral() != null) out.add(streams.getDownCentral());
-            if (streams.getDownZone() != null) out.add(streams.getDownZone());
-            if (streams.getDownSubzone() != null) out.add(streams.getDownSubzone());
+            if (streams.getUpLeaf() != null && streams.getUpLeaf().isEnabled()) out.add(streams.getUpLeaf());
+            if (streams.getUpSubzone() != null && streams.getUpSubzone().isEnabled()) out.add(streams.getUpSubzone());
+            if (streams.getUpZone() != null && streams.getUpZone().isEnabled()) out.add(streams.getUpZone());
+            if (streams.getDownCentral() != null && streams.getDownCentral().isEnabled()) out.add(streams.getDownCentral());
+            if (streams.getDownZone() != null && streams.getDownZone().isEnabled()) out.add(streams.getDownZone());
+            if (streams.getDownSubzone() != null && streams.getDownSubzone().isEnabled()) out.add(streams.getDownSubzone());
         }
         return out;
     }
@@ -74,6 +74,7 @@ public class JetStreamStreamsProperties {
 
     public static class StreamSpec {
         private String name;
+        private boolean enabled = true;
         /**
          * One or more subject filters. For this POC typically one entry (e.g., "leaf.>").
          */
@@ -158,6 +159,9 @@ public class JetStreamStreamsProperties {
             s.placementTags = List.of("leaf");
             return s;
         }
+
+        public boolean isEnabled() { return enabled; }
+        public void setEnabled(boolean enabled) { this.enabled = enabled; }
 
         public String getName() { return name; }
         public void setName(String name) { this.name = name; }

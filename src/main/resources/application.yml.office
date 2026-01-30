@@ -32,6 +32,13 @@ syncmgmt:
   # nats
   natsUrl: ${NATS_URL:nats://localhost:4222}
 
+  # Optional auth / TLS (production-like tests)
+  nats-user: ${NATS_USER:}
+  nats-password: ${NATS_PASSWORD:}
+  nats-token: ${NATS_TOKEN:}
+  nats-creds: ${NATS_CREDS:}
+  nats-tls: ${NATS_TLS:false}
+
   # enable/disable major runtime components per node
   bootstrap:
     enabled: ${SYNC_BOOTSTRAP_ENABLED:true}
@@ -44,6 +51,7 @@ syncmgmt:
       # --- Upstream (child -> parent): WorkQueue retention ---
       up-leaf:
         name: ${SYNC_UP_LEAF_STREAM_NAME:UP_LEAF_STREAM}
+        enabled: ${SYNC_UP_LEAF_STREAM_ENABLED:true}
         subjects: ["${SYNC_UP_LEAF_STREAM_SUBJECT:up.leaf.>}"]
         max-age: ${SYNC_UP_LEAF_STREAM_MAX_AGE:30d}
         retention-policy: ${SYNC_UP_LEAF_STREAM_RETENTION:workqueue}
@@ -53,6 +61,7 @@ syncmgmt:
 
       up-subzone:
         name: ${SYNC_UP_SUBZONE_STREAM_NAME:UP_SUBZONE_STREAM}
+        enabled: ${SYNC_UP_SUBZONE_STREAM_ENABLED:true}
         subjects: ["${SYNC_UP_SUBZONE_STREAM_SUBJECT:up.subzone.>}"]
         max-age: ${SYNC_UP_SUBZONE_STREAM_MAX_AGE:60d}
         retention-policy: ${SYNC_UP_SUBZONE_STREAM_RETENTION:workqueue}
@@ -62,6 +71,7 @@ syncmgmt:
 
       up-zone:
         name: ${SYNC_UP_ZONE_STREAM_NAME:UP_ZONE_STREAM}
+        enabled: ${SYNC_UP_ZONE_STREAM_ENABLED:true}
         subjects: ["${SYNC_UP_ZONE_STREAM_SUBJECT:up.zone.>}"]
         max-age: ${SYNC_UP_ZONE_STREAM_MAX_AGE:90d}
         retention-policy: ${SYNC_UP_ZONE_STREAM_RETENTION:workqueue}
@@ -72,6 +82,7 @@ syncmgmt:
       # --- Downstream (parent -> child): Interest retention ---
       down-central:
         name: ${SYNC_DOWN_CENTRAL_STREAM_NAME:DOWN_CENTRAL_STREAM}
+        enabled: ${SYNC_DOWN_CENTRAL_STREAM_ENABLED:true}
         subjects: ["${SYNC_DOWN_CENTRAL_STREAM_SUBJECT:down.central.>}"]
         max-age: ${SYNC_DOWN_CENTRAL_STREAM_MAX_AGE:90d}
         retention-policy: ${SYNC_DOWN_CENTRAL_STREAM_RETENTION:interest}
@@ -81,6 +92,7 @@ syncmgmt:
 
       down-zone:
         name: ${SYNC_DOWN_ZONE_STREAM_NAME:DOWN_ZONE_STREAM}
+        enabled: ${SYNC_DOWN_ZONE_STREAM_ENABLED:true}
         subjects: ["${SYNC_DOWN_ZONE_STREAM_SUBJECT:down.zone.>}"]
         max-age: ${SYNC_DOWN_ZONE_STREAM_MAX_AGE:60d}
         retention-policy: ${SYNC_DOWN_ZONE_STREAM_RETENTION:interest}
@@ -90,6 +102,7 @@ syncmgmt:
 
       down-subzone:
         name: ${SYNC_DOWN_SUBZONE_STREAM_NAME:DOWN_SUBZONE_STREAM}
+        enabled: ${SYNC_DOWN_SUBZONE_STREAM_ENABLED:true}
         subjects: ["${SYNC_DOWN_SUBZONE_STREAM_SUBJECT:down.subzone.>}"]
         max-age: ${SYNC_DOWN_SUBZONE_STREAM_MAX_AGE:30d}
         retention-policy: ${SYNC_DOWN_SUBZONE_STREAM_RETENTION:interest}
@@ -107,6 +120,7 @@ syncmgmt:
     enabled: ${SYNC_OUTBOX_ENABLED:true}
     poll-interval: ${SYNC_OUTBOX_POLL_INTERVAL:2s}
     batch-size: ${SYNC_OUTBOX_BATCH_SIZE:50}
+    max-retries: ${SYNC_OUTBOX_MAX_RETRIES:5}
 
   demo-consumer:
     enabled: ${SYNC_CONSUMER_ENABLED:false}

@@ -1,0 +1,111 @@
+services:
+  nats-central:
+    image: nats:2.10
+    command: ["-c", "/etc/nats/central.conf"]
+    volumes:
+      - ./nats/topology_test_central_zones_subzones_leafs/central.conf:/etc/nats/central.conf:ro
+      - nats-central-data:/data
+    ports:
+      - "4222:4222"
+      - "8222:8222"
+
+  nats-zone-a:
+    image: nats:2.10
+    command: ["-c", "/etc/nats/zone-a.conf"]
+    depends_on: [nats-central]
+    volumes:
+      - ./nats/topology_test_central_zones_subzones_leafs/zone-a.conf:/etc/nats/zone-a.conf:ro
+      - nats-zone-a-data:/data
+    ports:
+      - "4223:4222"
+      - "8223:8222"
+
+  nats-zone-b:
+    image: nats:2.10
+    command: ["-c", "/etc/nats/zone-b.conf"]
+    depends_on: [nats-central]
+    volumes:
+      - ./nats/topology_test_central_zones_subzones_leafs/zone-b.conf:/etc/nats/zone-b.conf:ro
+      - nats-zone-b-data:/data
+    ports:
+      - "4224:4222"
+      - "8224:8222"
+
+  nats-subzone-a1:
+    image: nats:2.10
+    command: ["-c", "/etc/nats/subzone-a1.conf"]
+    depends_on: [nats-zone-a]
+    volumes:
+      - ./nats/topology_test_central_zones_subzones_leafs/subzone-a1.conf:/etc/nats/subzone-a1.conf:ro
+      - nats-subzone-a1-data:/data
+    ports:
+      - "4225:4222"
+      - "8225:8222"
+
+  nats-subzone-b1:
+    image: nats:2.10
+    command: ["-c", "/etc/nats/subzone-b1.conf"]
+    depends_on: [nats-zone-b]
+    volumes:
+      - ./nats/topology_test_central_zones_subzones_leafs/subzone-b1.conf:/etc/nats/subzone-b1.conf:ro
+      - nats-subzone-b1-data:/data
+    ports:
+      - "4226:4222"
+      - "8226:8222"
+
+  nats-leaf-c:
+    image: nats:2.10
+    command: ["-c", "/etc/nats/leaf-c.conf"]
+    depends_on: [nats-central]
+    volumes:
+      - ./nats/topology_test_central_zones_subzones_leafs/leaf-c.conf:/etc/nats/leaf-c.conf:ro
+    ports:
+      - "4230:4222"
+      - "8230:8222"
+
+  nats-leaf-za:
+    image: nats:2.10
+    command: ["-c", "/etc/nats/leaf-za.conf"]
+    depends_on: [nats-zone-a]
+    volumes:
+      - ./nats/topology_test_central_zones_subzones_leafs/leaf-za.conf:/etc/nats/leaf-za.conf:ro
+    ports:
+      - "4231:4222"
+      - "8231:8222"
+
+  nats-leaf-zb:
+    image: nats:2.10
+    command: ["-c", "/etc/nats/leaf-zb.conf"]
+    depends_on: [nats-zone-b]
+    volumes:
+      - ./nats/topology_test_central_zones_subzones_leafs/leaf-zb.conf:/etc/nats/leaf-zb.conf:ro
+    ports:
+      - "4232:4222"
+      - "8232:8222"
+
+  nats-leaf-sa1:
+    image: nats:2.10
+    command: ["-c", "/etc/nats/leaf-sa1.conf"]
+    depends_on: [nats-subzone-a1]
+    volumes:
+      - ./nats/topology_test_central_zones_subzones_leafs/leaf-sa1.conf:/etc/nats/leaf-sa1.conf:ro
+    ports:
+      - "4233:4222"
+      - "8233:8222"
+
+  nats-leaf-sb1:
+    image: nats:2.10
+    command: ["-c", "/etc/nats/leaf-sb1.conf"]
+    depends_on: [nats-subzone-b1]
+    volumes:
+      - ./nats/topology_test_central_zones_subzones_leafs/leaf-sb1.conf:/etc/nats/leaf-sb1.conf:ro
+    ports:
+      - "4234:4222"
+      - "8234:8222"
+
+volumes:
+  nats-central-data: {}
+  nats-zone-a-data: {}
+  nats-zone-b-data: {}
+  nats-subzone-a1-data: {}
+  nats-subzone-b1-data: {}

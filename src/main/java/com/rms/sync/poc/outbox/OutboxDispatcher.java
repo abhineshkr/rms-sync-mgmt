@@ -30,6 +30,7 @@ public class OutboxDispatcher implements DisposableBean {
     private final SyncPublisher publisher;
     private final int batchSize;
     private final Duration pollInterval;
+    private final int maxRetries;
 
     private final Disposable subscription;
 
@@ -37,12 +38,14 @@ public class OutboxDispatcher implements DisposableBean {
             OutboxEventStore store,
             SyncPublisher publisher,
             @Value("${syncmgmt.outbox.batch-size:50}") int batchSize,
-            @Value("${syncmgmt.outbox.poll-interval:2s}") Duration pollInterval
+            @Value("${syncmgmt.outbox.poll-interval:2s}") Duration pollInterval,
+            @Value("${syncmgmt.outbox.max-retries:5}") int maxRetries
     ) {
         this.store = store;
         this.publisher = publisher;
         this.batchSize = batchSize;
         this.pollInterval = pollInterval;
+        this.maxRetries = maxRetries;
 
         this.subscription = Flux.interval(this.pollInterval)
                 .flatMap(tick -> store.findPending(this.batchSize))
@@ -57,8 +60,10 @@ public class OutboxDispatcher implements DisposableBean {
                 .doOnError(err -> log.warn("Publish failed id={} subject={} err={}", e.id(), e.subject(), err.toString()))
                 .onErrorResume(err -> {
                     int nextRetry = e.retryCount() + 1;
-                    // For the POC we flip back to PENDING a few times; after that mark FAILED.
-                    if (nextRetry <= 5) {
+                    // Retry policy:
+                    // - max-retries <= 0: retry forever (recommended for offline buffering tests)
+                    // - max-retries  > 0: mark FAILED after exceeding the configured limit
+                    if (maxRetries <= 0 || nextRetry <= maxRetries) {
                         return store.markPending(e.id(), nextRetry);
                     }
                     return store.markFailed(e.id(), nextRetry);

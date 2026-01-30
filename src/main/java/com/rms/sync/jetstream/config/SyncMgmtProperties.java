@@ -14,6 +14,13 @@ public class SyncMgmtProperties {
 
     private String natsUrl = "nats://localhost:4222";
 
+    // optional auth/TLS (production-like test)
+    private String natsUser;
+    private String natsPassword;
+    private String natsToken;
+    private String natsCreds; // path to .creds file (NKey/JWT)
+    private boolean natsTls = false;
+
     public String getTier() { return tier; }
     public void setTier(String tier) { this.tier = tier; }
 
@@ -28,4 +35,19 @@ public class SyncMgmtProperties {
 
     public String getNatsUrl() { return natsUrl; }
     public void setNatsUrl(String natsUrl) { this.natsUrl = natsUrl; }
+
+    public String getNatsUser() { return natsUser; }
+    public void setNatsUser(String natsUser) { this.natsUser = natsUser; }
+
+    public String getNatsPassword() { return natsPassword; }
+    public void setNatsPassword(String natsPassword) { this.natsPassword = natsPassword; }
+
+    public String getNatsToken() { return natsToken; }
+    public void setNatsToken(String natsToken) { this.natsToken = natsToken; }
+
+    public String getNatsCreds() { return natsCreds; }
+    public void setNatsCreds(String natsCreds) { this.natsCreds = natsCreds; }
+
+    public boolean isNatsTls() { return natsTls; }
+    public void setNatsTls(boolean natsTls) { this.natsTls = natsTls; }
 }
