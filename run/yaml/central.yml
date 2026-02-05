@@ -1,0 +1,48 @@
+server:
+  port: 8080
+
+spring:
+  flyway:
+    enabled: true
+
+syncmgmt:
+  tier: central
+  zone: _
+  subzone: _
+  nodeId: central-1
+  natsUrl: nats://127.0.0.1:4222
+
+  bootstrap:
+    enabled: true
+    fail-on-mismatch: false
+    stream-keys: ["up-zone", "down-central"]
+
+  relay:
+    enabled: false
+
+  outbox:
+    enabled: true
+    max-retries: 5
+
+  poc-admin:
+    enabled: true
+
+  jetstream:
+    streams:
+      # Central owns only the final upstream sink + central-origin downstream
+      up-zone:
+        enabled: true
+        subjects: ["up.*.>"]
+      down-central:
+        enabled: true
+        subjects: ["down.central.>"]
+
+      # Disable everything else for clarity
+      up-leaf:
+        enabled: false
+      up-subzone:
+        enabled: false
+      down-zone:
+        enabled: false
+      down-subzone:
+        enabled: false

@@ -1,29 +1,47 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# ---- JAR location (you said it's in repo root) ----
+# ---- JAR location (repo root) ----
 APP_JAR="$(cd "$(dirname "$0")/.." && pwd)/rms-sync-mgmt.jar"
 
-# ---- Ensure folders exist ----
-mkdir -p "$(cd "$(dirname "$0")" && pwd)/env"
-mkdir -p "$(cd "$(dirname "$0")" && pwd)/logs"
+# ---- Folders ----
+BASE_DIR="$(cd "$(dirname "$0")" && pwd)"
+mkdir -p "${BASE_DIR}/logs"
+mkdir -p "${BASE_DIR}/yaml"
 
-# ---- Helper: start one instance ----
+# ---- JVM options (replaces JAVA_TOOL_OPTIONS from env/common.env) ----
+JAVA_OPTS=(
+  "-XX:+UseG1GC"
+  "-Xms256m"
+  "-Xmx512m"
+)
+
+# ---- Helper: start one instance from YAML (no .env files) ----
+# Loads:
+#   1) run/yaml/common.yml
+#   2) run/yaml/<name>.yml
+# Instance YAML overrides common.yml.
 start_app () {
   local name="$1"
-  local base_dir
-  base_dir="$(cd "$(dirname "$0")" && pwd)"
 
-  # load env
-  set -a
-  source "${base_dir}/env/common.env"
-  source "${base_dir}/env/${name}.env"
-  set +a
+  local common_cfg="${BASE_DIR}/yaml/common.yml"
+  local instance_cfg="${BASE_DIR}/yaml/${name}.yml"
 
-  # start
-  nohup java -jar "$APP_JAR" > "${base_dir}/logs/${name}.log" 2>&1 &
-  echo "$!" > "${base_dir}/logs/${name}.pid"
-  echo "Started ${name} (pid $(cat "${base_dir}/logs/${name}.pid")) log=${base_dir}/logs/${name}.log"
+  if [[ ! -f "${common_cfg}" ]]; then
+    echo "Missing common config: ${common_cfg}" >&2
+    exit 1
+  fi
+  if [[ ! -f "${instance_cfg}" ]]; then
+    echo "Missing instance config: ${instance_cfg}" >&2
+    exit 1
+  fi
+
+  nohup java "${JAVA_OPTS[@]}" -jar "${APP_JAR}" \
+    --spring.config.additional-location="file:${common_cfg},file:${instance_cfg}" \
+    > "${BASE_DIR}/logs/${name}.log" 2>&1 &
+
+  echo "$!" > "${BASE_DIR}/logs/${name}.pid"
+  echo "Started ${name} (pid $(cat "${BASE_DIR}/logs/${name}.pid")) log=${BASE_DIR}/logs/${name}.log"
 }
 
 # ---- Start order ----

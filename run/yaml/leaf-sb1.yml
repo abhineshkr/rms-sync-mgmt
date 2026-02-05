@@ -1,0 +1,26 @@
+server:
+  port: 8094
+
+spring:
+  flyway:
+    enabled: false
+
+syncmgmt:
+  tier: leaf
+  zone: zone-b
+  subzone: subzone-b1
+  nodeId: leaf-sb1-1
+  natsUrl: nats://127.0.0.1:4234
+
+  bootstrap:
+    enabled: false
+
+  relay:
+    enabled: false
+
+  outbox:
+    enabled: true
+    max-retries: 0
+
+  poc-admin:
+    enabled: false

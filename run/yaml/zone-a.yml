@@ -1,0 +1,57 @@
+server:
+  port: 8081
+
+spring:
+  flyway:
+    enabled: false
+
+syncmgmt:
+  tier: zone
+  zone: zone-a
+  subzone: _
+  nodeId: zone-a-1
+  natsUrl: nats://127.0.0.1:4223
+
+  bootstrap:
+    enabled: true
+    fail-on-mismatch: false
+    stream-keys: ["up-subzone", "down-central", "down-zone"]
+
+  relay:
+    enabled: true
+    zone-has-subzones: true
+    batch-size: 50
+    poll-interval-ms: 500
+
+  outbox:
+    enabled: true
+
+  poc-admin:
+    enabled: true
+
+  jetstream:
+    streams:
+      # UP landing accepts both:
+      # - up.subzone.zone-a... (from subzone relays)
+      # - up.leaf.zone-a...    (from leaf-za direct)
+      up-subzone:
+        enabled: true
+        subjects: ["up.*.zone-a.>"]
+
+      # DOWN inbound from central (stored locally; relay consumes locally)
+      down-central:
+        enabled: true
+        subjects: ["down.central.zone-a.>"]
+
+      # DOWN egress toward subzones/leafs
+      down-zone:
+        enabled: true
+        subjects: ["down.zone.zone-a.>"]
+
+      # Disable others
+      up-zone:
+        enabled: false
+      up-leaf:
+        enabled: false
+      down-subzone:
+        enabled: false

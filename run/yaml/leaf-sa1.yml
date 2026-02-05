@@ -1,0 +1,26 @@
+server:
+  port: 8093
+
+spring:
+  flyway:
+    enabled: false
+
+syncmgmt:
+  tier: leaf
+  zone: zone-a
+  subzone: subzone-a1
+  nodeId: leaf-sa1-1
+  natsUrl: nats://127.0.0.1:4233
+
+  bootstrap:
+    enabled: false
+
+  relay:
+    enabled: false
+
+  outbox:
+    enabled: true
+    max-retries: 0
+
+  poc-admin:
+    enabled: false

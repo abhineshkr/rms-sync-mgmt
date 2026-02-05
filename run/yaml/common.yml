@@ -1,0 +1,15 @@
+# Common settings shared by all local instances started via run/start-all.sh
+# (Replaces run/env/common.env)
+
+spring:
+  r2dbc:
+    url: r2dbc:postgresql://192.168.3.11:5432/dockyard_dev
+    username: postgres
+    password: postgres
+
+  flyway:
+    # default off; individual instance files can enable
+    enabled: false
+    url: jdbc:postgresql://192.168.3.11:5432/dockyard_dev
+    user: postgres
+    password: postgres

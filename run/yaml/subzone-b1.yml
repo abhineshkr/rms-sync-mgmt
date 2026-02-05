@@ -1,0 +1,50 @@
+server:
+  port: 8084
+
+spring:
+  flyway:
+    enabled: false
+
+syncmgmt:
+  tier: subzone
+  zone: zone-b
+  subzone: subzone-b1
+  nodeId: subzone-b1-1
+  natsUrl: nats://127.0.0.1:4226
+
+  bootstrap:
+    enabled: true
+    fail-on-mismatch: false
+    stream-keys: ["up-leaf", "down-zone", "down-subzone"]
+
+  relay:
+    enabled: true
+    batch-size: 50
+    poll-interval-ms: 500
+
+  outbox:
+    enabled: true
+
+  poc-admin:
+    enabled: true
+
+  jetstream:
+    streams:
+      up-leaf:
+        enabled: true
+        subjects: ["up.leaf.zone-b.subzone-b1.>"]
+
+      down-zone:
+        enabled: true
+        subjects: ["down.zone.zone-b.subzone-b1.>"]
+
+      down-subzone:
+        enabled: true
+        subjects: ["down.subzone.zone-b.subzone-b1.>"]
+
+      up-subzone:
+        enabled: false
+      up-zone:
+        enabled: false
+      down-central:
+        enabled: false

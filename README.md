@@ -134,3 +134,21 @@ YAML-first deployment (recommended):
   Activate with `--spring.profiles.active=<profile>` and override zone/subzone/nodeId/natsUrl as needed.
 
 The Phase 3 compose can use environment variables to run different behaviors per node without changing the code.
+
+## Local multi-instance run (YAML-based)
+
+The helper script `run/start-all.sh` starts multiple app instances on the host (central/zone/subzone/leaf) using **YAML files** instead of `.env` overrides.
+
+- Common config: `run/yaml/common.yml`
+- Per-instance config: `run/yaml/<instance>.yml` (e.g. `run/yaml/zone-a.yml`)
+
+Start:
+
+```bash
+cd rms-sync-mgmt
+./run/start-all.sh
+```
+
+Notes:
+- Streams are bootstrapped according to `syncmgmt.bootstrap.stream-keys` and/or per-stream `enabled` flags in the YAML.
+- The legacy `run/env/*.env` files are kept for reference only; `start-all.sh` does not read them.
