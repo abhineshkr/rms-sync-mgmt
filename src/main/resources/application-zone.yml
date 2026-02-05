@@ -1,0 +1,29 @@
+# Example ZONE deployment profile.
+# Activate with: --spring.profiles.active=zone
+
+syncmgmt:
+  tier: zone
+  zone: zone-a
+  subzone: none
+  nodeId: zone01
+  natsUrl: nats://nats-zone-a:4222
+
+  bootstrap:
+    enabled: true
+    fail-on-mismatch: false
+    # Zone relay requires local buffering for:
+    # - upstream ingress from subzones + upstream egress to central
+    # - downstream ingress from central + downstream egress to subzones
+    stream-keys: ["up-subzone", "up-zone", "down-central", "down-zone"]
+
+  relay:
+    enabled: true
+    zone-has-subzones: true
+    batch-size: 50
+    poll-interval-ms: 500
+
+  outbox:
+    enabled: false
+
+  demo-consumer:
+    enabled: false

@@ -120,4 +120,17 @@ Runtime toggles are controlled by environment variables (see `application.yml`):
 - `SYNC_CONSUMER_ENABLED` — enable/disable the demo pull consumer
 - `SYNC_POC_ADMIN_ENABLED` — enable/disable `/poc/*` admin endpoints
 
-The Phase 3 compose uses these toggles to run different behaviors per node without changing the code.
+Stream bootstrap selection:
+- `syncmgmt.bootstrap.stream-keys` — optional list of logical stream keys to bootstrap **on this node**.
+  - If empty, all configured streams are bootstrapped.
+  - Keys: `up-leaf`, `up-subzone`, `up-zone`, `down-central`, `down-zone`, `down-subzone`.
+
+YAML-first deployment (recommended):
+- Use Spring profiles to keep per-tier settings in YAML (examples included):
+  - `application-central.yml`
+  - `application-zone.yml`
+  - `application-subzone.yml`
+  - `application-leaf.yml`
+  Activate with `--spring.profiles.active=<profile>` and override zone/subzone/nodeId/natsUrl as needed.
+
+The Phase 3 compose can use environment variables to run different behaviors per node without changing the code.

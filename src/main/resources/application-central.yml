@@ -1,0 +1,26 @@
+# Example CENTRAL deployment profile.
+# Activate with: --spring.profiles.active=central
+
+syncmgmt:
+  tier: central
+  zone: z1
+  subzone: none
+  nodeId: central01
+  natsUrl: nats://nats-central:4222
+
+  bootstrap:
+    enabled: true
+    fail-on-mismatch: false
+    # Central typically needs:
+    # - UP_ZONE_STREAM (final upstream aggregation)
+    # - DOWN_CENTRAL_STREAM (downstream commands originating at central)
+    stream-keys: ["up-zone", "down-central"]
+
+  relay:
+    enabled: false
+
+  outbox:
+    enabled: false
+
+  demo-consumer:
+    enabled: false

@@ -1,0 +1,28 @@
+# Example SUBZONE deployment profile.
+# Activate with: --spring.profiles.active=subzone
+
+syncmgmt:
+  tier: subzone
+  zone: zone-a
+  subzone: subzone-a1
+  nodeId: subzone01
+  natsUrl: nats://nats-subzone-a1:4222
+
+  bootstrap:
+    enabled: true
+    fail-on-mismatch: false
+    # Subzone relay buffers:
+    # - upstream ingress from leaf + upstream egress to zone
+    # - downstream ingress from zone + downstream egress to leaf
+    stream-keys: ["up-leaf", "up-subzone", "down-zone", "down-subzone"]
+
+  relay:
+    enabled: true
+    batch-size: 50
+    poll-interval-ms: 500
+
+  outbox:
+    enabled: false
+
+  demo-consumer:
+    enabled: false

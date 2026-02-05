@@ -44,6 +44,10 @@ syncmgmt:
     enabled: ${SYNC_BOOTSTRAP_ENABLED:true}
     # When true, fail fast if existing stream differs from desired config
     fail-on-mismatch: ${SYNC_BOOTSTRAP_FAIL_ON_MISMATCH:false}
+    # Optional: bootstrap only a subset of streams on this node.
+    # If omitted/empty, all configured streams are bootstrapped.
+    # Valid keys: up-leaf, up-subzone, up-zone, down-central, down-zone, down-subzone
+    stream-keys: []
 
   # JetStream streams (everything configurable; defaults match spec)
   jetstream:

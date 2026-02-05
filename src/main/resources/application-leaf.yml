@@ -1,0 +1,27 @@
+# Example LEAF deployment profile.
+# Activate with: --spring.profiles.active=leaf
+
+syncmgmt:
+  tier: leaf
+  zone: zone-a
+  subzone: subzone-a1
+  nodeId: leaf01
+  natsUrl: nats://nats-leaf01:4222
+
+  bootstrap:
+    # Enable this only if the leaf site runs JetStream and you want local spooling.
+    enabled: true
+    fail-on-mismatch: false
+    # Leaf typically buffers leaf-origin upstream events and optionally downstream deliveries.
+    stream-keys: ["up-leaf", "down-subzone"]
+
+  relay:
+    enabled: false
+
+  outbox:
+    enabled: true
+    poll-interval: 2s
+    batch-size: 50
+
+  demo-consumer:
+    enabled: false
